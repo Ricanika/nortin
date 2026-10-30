@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { memberName, type Priority, type StatusType } from "@/lib/types";
 import { Avatar, DueDate, PriorityFlag } from "./TaskBits";
+import CalendarView from "./CalendarView";
 import { useWorkspace } from "./WorkspaceContext";
 
 interface Row {
@@ -46,6 +47,7 @@ export default function MyTasks() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const person = searchParams.get("p") ?? me;
+  const mode = searchParams.get("m") === "cal" ? "cal" : "list";
   const supabase = useMemo(() => createClient(), []);
 
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -118,12 +120,23 @@ export default function MyTasks() {
   ];
 
   const personMember = members.find((m) => m.user_id === person);
-  const setPerson = (id: string) => {
+  const setParam = (key: string, value: string | null) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (id === me) params.delete("p");
-    else params.set("p", id);
+    if (value) params.set(key, value);
+    else params.delete(key);
     router.replace(`${pathname}?${params}`, { scroll: false });
   };
+  const setPerson = (id: string) => setParam("p", id === me ? null : id);
+  const taskHref = (r: Row) => `/w/${workspace.id}/l/${r.list_id}?t=${r.parent_task_id ?? r.id}`;
+
+  async function moveDue(id: string, date: string | null) {
+    setRows((prev) => prev?.map((r) => (r.id === id ? { ...r, due_date: date } : r)) ?? prev);
+    const { error } = await supabase.from("tasks").update({ due_date: date }).eq("id", id);
+    if (error) {
+      setError(error.message);
+      load();
+    }
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -139,6 +152,17 @@ export default function MyTasks() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm">
+            <div className="flex overflow-hidden rounded-md border">
+              {(["list", "cal"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setParam("m", m === "cal" ? "cal" : null)}
+                  className={`px-3 py-1 ${mode === m ? "bg-violet-600 text-white" : "hover:bg-slate-50"}`}
+                >
+                  {m === "list" ? "☰ Lista" : "▣ Calendário"}
+                </button>
+              ))}
+            </div>
             <select
               value={person}
               onChange={(e) => setPerson(e.target.value)}
@@ -151,6 +175,7 @@ export default function MyTasks() {
                 </option>
               ))}
             </select>
+            {mode === "list" && (
             <select
               value={groupBy}
               onChange={(e) => setGroupBy(e.target.value as GroupBy)}
@@ -160,10 +185,13 @@ export default function MyTasks() {
               <option value="due">Agrupar por prazo</option>
               <option value="list">Agrupar por lista</option>
             </select>
+            )}
+            {mode === "list" && (
             <label className="flex items-center gap-1.5 text-slate-600">
               <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} />
               Mostrar concluídas
             </label>
+            )}
           </div>
         </div>
 
@@ -179,6 +207,28 @@ export default function MyTasks() {
 
       {error && <div className="bg-red-50 px-6 py-2 text-sm text-red-700">{error}</div>}
 
+      {mode === "cal" ? (
+        <div className="min-h-0 flex-1 overflow-auto">
+          <CalendarView
+            items={all.map((r) => ({
+              id: r.id,
+              title: r.parent_task_id ? `↳ ${r.title}` : r.title,
+              due_date: r.due_date,
+              color: r.statuses?.color ?? "#94a3b8",
+              done: isDone(r),
+              priority: r.priority,
+              assignees: [],
+              subtitle: `${r.lists?.spaces?.name ?? ""} / ${r.lists?.name ?? ""}`,
+            }))}
+            members={members}
+            onOpen={(id) => {
+              const r = all.find((x) => x.id === id);
+              if (r) router.push(taskHref(r));
+            }}
+            onMove={moveDue}
+          />
+        </div>
+      ) : (
       <div className="min-h-0 flex-1 space-y-6 overflow-auto p-6">
         {rows && visible.length === 0 && (
           <p className="text-sm text-slate-500">
@@ -199,7 +249,7 @@ export default function MyTasks() {
               {groups.get(key)!.map((r) => (
                 <Link
                   key={r.id}
-                  href={`/w/${workspace.id}/l/${r.list_id}?t=${r.parent_task_id ?? r.id}`}
+                  href={taskHref(r)}
                   className="grid min-w-[640px] grid-cols-[110px_minmax(200px,1fr)_200px_100px_80px] items-center gap-3 border-b px-2 py-2 text-sm hover:bg-slate-50"
                 >
                   <span
@@ -229,6 +279,7 @@ export default function MyTasks() {
           </section>
         ))}
       </div>
+      )}
     </div>
   );
 }

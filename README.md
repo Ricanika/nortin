@@ -67,5 +67,6 @@ banco (RLS e triggers), não só na tela.
 - [x] Fase 2: responsáveis, membros por e-mail, "Minhas tarefas", só o dono cria Spaces
 - [ ] Folders na sidebar, convite por link
 - [ ] Fase 3: Custom Fields (`custom_fields` + `task_custom_values` jsonb)
-- [ ] Fase 4: views Calendário, Tabela e Gantt; filtros salvos
+- [x] Calendário (por lista e em Minhas tarefas), com arrastar para mudar o prazo
+- [ ] Fase 4: views Tabela e Gantt; filtros salvos
 - [ ] Fase 5: automações ("quando status = X, faça Y"), histórico de atividade

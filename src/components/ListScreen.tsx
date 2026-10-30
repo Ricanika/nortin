@@ -8,13 +8,14 @@ import { useWorkspace } from "./WorkspaceContext";
 import ListView from "./ListView";
 import BoardView from "./BoardView";
 import TaskDrawer from "./TaskDrawer";
+import CalendarView from "./CalendarView";
 
 export type TaskPatch = Partial<
   Pick<Task, "title" | "description" | "status_id" | "priority" | "due_date" | "position">
 >;
 
 export interface TaskActions {
-  create: (title: string, statusId: string) => Promise<void>;
+  create: (title: string, statusId: string, extra?: TaskPatch) => Promise<void>;
   update: (id: string, patch: TaskPatch) => Promise<void>;
   remove: (id: string) => Promise<void>;
   open: (id: string) => void;
@@ -29,7 +30,8 @@ export default function ListScreen({ listId }: { listId: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const view = searchParams.get("v") === "board" ? "board" : "list";
+  const v = searchParams.get("v");
+  const view = v === "board" || v === "calendar" ? v : "list";
   const openTaskId = searchParams.get("t");
   const assigneeFilter = searchParams.get("p");
   const { workspace, members, me } = useWorkspace();
@@ -135,11 +137,11 @@ export default function ListScreen({ listId }: { listId: string }) {
   }, [listId, supabase, workspace.id]);
 
   const actions: TaskActions = {
-    async create(title, statusId) {
+    async create(title, statusId, extra) {
       const last = tasks.filter((t) => t.status_id === statusId).sort(byPosition).at(-1);
       const { data, error } = await supabase
         .from("tasks")
-        .insert({ list_id: listId, status_id: statusId, title, position: (last?.position ?? 0) + 1000 })
+        .insert({ ...extra, list_id: listId, status_id: statusId, title, position: (last?.position ?? 0) + 1000 })
         .select(TASK_SELECT)
         .single();
       if (error) return setError(error.message);
@@ -226,7 +228,7 @@ export default function ListScreen({ listId }: { listId: string }) {
         <h1 className="text-lg font-semibold">{list?.name ?? "…"}</h1>
         <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
           <div className="flex gap-1 text-sm">
-            {(["list", "board"] as const).map((v) => (
+            {(["list", "board", "calendar"] as const).map((v) => (
               <button
                 key={v}
                 onClick={() => setParam("v", v === "list" ? null : v)}
@@ -236,7 +238,7 @@ export default function ListScreen({ listId }: { listId: string }) {
                     : "border-transparent text-slate-500 hover:text-slate-800"
                 }`}
               >
-                {v === "list" ? "☰ Lista" : "▦ Quadro"}
+                {v === "list" ? "☰ Lista" : v === "board" ? "▦ Quadro" : "▣ Calendário"}
               </button>
             ))}
           </div>
@@ -277,6 +279,27 @@ export default function ListScreen({ listId }: { listId: string }) {
       <div className="min-h-0 flex-1 overflow-auto bg-white">
         {view === "list" ? (
           <ListView statuses={sortedStatuses} tasks={visibleTasks} actions={actions} />
+        ) : view === "calendar" ? (
+          <CalendarView
+            items={visibleTasks.map((t) => {
+              const s = statuses.find((x) => x.id === t.status_id);
+              return {
+                id: t.id,
+                title: t.title,
+                due_date: t.due_date,
+                color: s?.color ?? "#94a3b8",
+                done: s?.type === "done" || s?.type === "closed",
+                priority: t.priority,
+                assignees: t.assignees,
+              };
+            })}
+            members={members}
+            onOpen={actions.open}
+            onMove={(id, date) => actions.update(id, { due_date: date })}
+            onCreate={async (date, title) => {
+              if (sortedStatuses[0]) await actions.create(title, sortedStatuses[0].id, { due_date: date });
+            }}
+          />
         ) : (
           <BoardView
             statuses={sortedStatuses}
