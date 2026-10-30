@@ -76,7 +76,7 @@ create table public.tasks (
   workspace_id uuid not null references public.workspaces (id) on delete cascade,
   list_id uuid not null references public.lists (id) on delete cascade,
   parent_task_id uuid references public.tasks (id) on delete cascade,
-  status_id uuid references public.statuses (id) on delete restrict,
+  status_id uuid references public.statuses (id) on delete set null,
   title text not null check (length(trim(title)) > 0),
   description text,
   priority public.task_priority,
