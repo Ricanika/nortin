@@ -24,12 +24,15 @@ function ymd(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** Sempre 6 semanas, para o começo do mês seguinte também aparecer. */
 function monthGrid(year: number, month: number): Date[] {
-  const first = new Date(year, month, 1);
-  const start = new Date(year, month, 1 - first.getDay());
-  const lastOfMonth = new Date(year, month + 1, 0);
-  const weeks = Math.ceil((first.getDay() + lastOfMonth.getDate()) / 7);
-  return Array.from({ length: weeks * 7 }, (_, i) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
+  const offset = new Date(year, month, 1).getDay();
+  return Array.from({ length: 42 }, (_, i) => new Date(year, month, 1 - offset + i));
+}
+
+function monthTitle(year: number, month: number) {
+  const name = new Date(year, month, 1).toLocaleDateString("pt-BR", { month: "long" });
+  return `${name[0].toUpperCase()}${name.slice(1)} de ${year}`;
 }
 
 export default function CalendarView({
@@ -60,7 +63,7 @@ export default function CalendarView({
   for (const it of items) if (it.due_date) byDay.set(it.due_date, [...(byDay.get(it.due_date) ?? []), it]);
   const unscheduled = items.filter((it) => !it.due_date && !it.done);
 
-  const monthLabel = new Date(cursor.y, cursor.m, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const monthLabel = monthTitle(cursor.y, cursor.m);
   const shift = (delta: number) => {
     const d = new Date(cursor.y, cursor.m + delta, 1);
     setCursor({ y: d.getFullYear(), m: d.getMonth() });
@@ -126,7 +129,7 @@ export default function CalendarView({
         >
           Hoje
         </button>
-        <h2 className="ml-2 text-lg font-semibold capitalize">{monthLabel}</h2>
+        <h2 className="ml-2 text-lg font-semibold">{monthLabel}</h2>
       </div>
 
       {onMove && (
