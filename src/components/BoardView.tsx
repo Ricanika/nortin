@@ -17,7 +17,8 @@ import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } 
 import { CSS } from "@dnd-kit/utilities";
 import { positionBetween, type Status, type Task } from "@/lib/types";
 import type { TaskActions } from "./ListScreen";
-import { DueDate, NewTaskInput, PriorityFlag } from "./TaskBits";
+import { AvatarStack, DueDate, NewTaskInput, PriorityFlag } from "./TaskBits";
+import { useWorkspace } from "./WorkspaceContext";
 
 type Columns = Record<string, string[]>; // statusId -> taskIds em ordem
 
@@ -213,6 +214,7 @@ function SortableCard({ task, onOpen }: { task: Task; onOpen: () => void }) {
 }
 
 function Card({ task, dragging = false }: { task: Task; dragging?: boolean }) {
+  const { members } = useWorkspace();
   return (
     <div
       className={`cursor-pointer rounded-md border bg-white p-3 text-sm shadow-sm hover:border-violet-300 ${
@@ -220,9 +222,12 @@ function Card({ task, dragging = false }: { task: Task; dragging?: boolean }) {
       }`}
     >
       <p className="mb-2 break-words">{task.title}</p>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <PriorityFlag priority={task.priority} />
-        <DueDate date={task.due_date} />
+        <span className="flex items-center gap-2">
+          <DueDate date={task.due_date} />
+          {task.assignees.length > 0 && <AvatarStack ids={task.assignees} members={members} />}
+        </span>
       </div>
     </div>
   );

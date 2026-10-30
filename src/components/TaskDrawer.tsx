@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PRIORITIES, type Comment, type Priority, type Status, type Task } from "@/lib/types";
 import type { TaskActions } from "./ListScreen";
+import { AssigneePicker } from "./TaskBits";
+import { useWorkspace } from "./WorkspaceContext";
 
 export default function TaskDrawer({
   task,
@@ -17,6 +19,7 @@ export default function TaskDrawer({
   onClose: () => void;
 }) {
   const supabase = useMemo(() => createClient(), []);
+  const { members } = useWorkspace();
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
   const [subtasks, setSubtasks] = useState<Task[]>([]);
@@ -144,6 +147,15 @@ export default function TaskDrawer({
                 </option>
               ))}
             </select>
+
+            <span className="text-slate-500">Responsáveis</span>
+            <div>
+              <AssigneePicker
+                value={task.assignees}
+                members={members}
+                onToggle={(userId, on) => actions.assign(task.id, userId, on)}
+              />
+            </div>
 
             <span className="text-slate-500">Prioridade</span>
             <select

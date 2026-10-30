@@ -5,18 +5,20 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { List, Space, Workspace } from "@/lib/types";
+import { useWorkspace } from "./WorkspaceContext";
 
 const SPACE_COLORS = ["#7c3aed", "#2563eb", "#059669", "#d97706", "#db2777", "#0891b2"];
 
 export default function Sidebar({
-  workspace,
   workspaces,
   userEmail,
 }: {
-  workspace: Workspace;
   workspaces: Workspace[];
   userEmail: string;
 }) {
+  const { workspace, role } = useWorkspace();
+  const isOwner = role === "owner";
+  const isAdmin = role === "owner" || role === "admin";
   const router = useRouter();
   const pathname = usePathname();
   const [spaces, setSpaces] = useState<Space[]>([]);
@@ -106,15 +108,35 @@ export default function Sidebar({
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto p-2">
-        <div className="flex items-center justify-between px-2 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-slate-400">
+        {[
+          { href: `/w/${workspace.id}/me`, label: "Minhas tarefas", icon: "◎", show: true },
+          { href: `/w/${workspace.id}/members`, label: "Membros", icon: "👥", show: isAdmin },
+        ]
+          .filter((item) => item.show)
+          .map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
+                pathname === item.href ? "bg-violet-100 font-medium text-violet-700" : "hover:bg-slate-200"
+              }`}
+            >
+              <span className="w-5 text-center">{item.icon}</span>
+              {item.label}
+            </Link>
+          ))}
+
+        <div className="flex items-center justify-between px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-slate-400">
           Spaces
-          <button
-            title="Novo Space"
-            onClick={() => setAdding({ kind: "space" })}
-            className="rounded px-1 text-base leading-none hover:bg-slate-200 hover:text-slate-700"
-          >
-            +
-          </button>
+          {isOwner && (
+            <button
+              title="Novo Space"
+              onClick={() => setAdding({ kind: "space" })}
+              className="rounded px-1 text-base leading-none hover:bg-slate-200 hover:text-slate-700"
+            >
+              +
+            </button>
+          )}
         </div>
 
         {spaces.map((space) => (

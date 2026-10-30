@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +23,7 @@ export default function LoginPage() {
     const { data, error } =
       mode === "signin"
         ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({ email, password });
+        : await supabase.auth.signUp({ email, password, options: { data: { full_name: name.trim() } } });
     setLoading(false);
     if (error) return setError(error.message);
     if (mode === "signup" && !data.session) {
@@ -41,6 +42,15 @@ export default function LoginPage() {
         <p className="text-sm text-slate-500">
           {mode === "signin" ? "Entre na sua conta" : "Crie sua conta"}
         </p>
+        {mode === "signup" && (
+          <input
+            required
+            placeholder="Seu nome"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:border-violet-500"
+          />
+        )}
         <input
           type="email"
           required

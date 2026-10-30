@@ -3,7 +3,10 @@
 import { useState } from "react";
 import type { Status, Task } from "@/lib/types";
 import type { TaskActions } from "./ListScreen";
-import { DueDate, NewTaskInput, PriorityFlag } from "./TaskBits";
+import { AssigneePicker, DueDate, NewTaskInput, PriorityFlag } from "./TaskBits";
+import { useWorkspace } from "./WorkspaceContext";
+
+const COLS = "grid-cols-[minmax(180px,1fr)_130px_150px_110px_90px_32px]";
 
 export default function ListView({
   statuses,
@@ -15,6 +18,7 @@ export default function ListView({
   actions: TaskActions;
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const { members } = useWorkspace();
 
   return (
     <div className="space-y-6 p-6">
@@ -37,9 +41,10 @@ export default function ListView({
             </button>
 
             {!collapsed[status.id] && (
-              <div className="ml-5">
-                <div className="grid grid-cols-[1fr_160px_110px_90px_32px] border-b px-2 pb-1 text-xs text-slate-400">
+              <div className="ml-5 overflow-x-auto">
+                <div className={`grid ${COLS} min-w-[720px] border-b px-2 pb-1 text-xs text-slate-400`}>
                   <span>Nome</span>
+                  <span>Responsáveis</span>
                   <span>Status</span>
                   <span>Prioridade</span>
                   <span>Prazo</span>
@@ -48,7 +53,7 @@ export default function ListView({
                 {group.map((task) => (
                   <div
                     key={task.id}
-                    className="group grid grid-cols-[1fr_160px_110px_90px_32px] items-center border-b px-2 py-1.5 text-sm hover:bg-slate-50"
+                    className={`group grid ${COLS} min-w-[720px] items-center border-b px-2 py-1.5 text-sm hover:bg-slate-50`}
                   >
                     <button
                       onClick={() => actions.open(task.id)}
@@ -62,6 +67,11 @@ export default function ListView({
                         {task.title}
                       </span>
                     </button>
+                    <AssigneePicker
+                      value={task.assignees}
+                      members={members}
+                      onToggle={(userId, on) => actions.assign(task.id, userId, on)}
+                    />
                     <select
                       value={task.status_id ?? ""}
                       onChange={(e) => actions.update(task.id, { status_id: e.target.value })}

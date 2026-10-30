@@ -29,6 +29,19 @@ workspaces ─┬─ workspace_members ── profiles
 - O workspace é criado pela RPC `create_workspace(nome)`, que já cria um Space e uma lista.
 - A ordem é fracionária (`position`): mover um card grava a média dos vizinhos (uma só linha atualizada).
 
+## Permissões
+
+| Ação | Dono | Administrador | Membro |
+|---|---|---|---|
+| Criar, renomear e excluir Spaces | ✅ | — | — |
+| Adicionar e remover membros | ✅ | ✅ | — |
+| Promover membro a administrador | ✅ | — | — |
+| Criar listas, tarefas e status | ✅ | ✅ | ✅ |
+| Marcar responsáveis | ✅ | ✅ | ✅ |
+
+O dono é quem criou o workspace e não pode ser removido nem trocado. Essas regras valem no
+banco (RLS e triggers), não só na tela.
+
 ## Como rodar
 
 1. Crie um projeto no [Supabase](https://supabase.com).
@@ -51,7 +64,8 @@ workspaces ─┬─ workspace_members ── profiles
 ## Roadmap
 
 - [x] Fase 1: hierarquia, tarefas, status, Lista, Quadro, subtarefas, comentários, realtime
-- [ ] Fase 2: responsáveis (assignees), convite de membros, Folders na sidebar
+- [x] Fase 2: responsáveis, membros por e-mail, "Minhas tarefas", só o dono cria Spaces
+- [ ] Folders na sidebar, convite por link
 - [ ] Fase 3: Custom Fields (`custom_fields` + `task_custom_values` jsonb)
 - [ ] Fase 4: views Calendário, Tabela e Gantt; filtros salvos
 - [ ] Fase 5: automações ("quando status = X, faça Y"), histórico de atividade

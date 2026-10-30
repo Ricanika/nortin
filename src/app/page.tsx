@@ -12,9 +12,11 @@ export default async function Home() {
 
   if (workspaces && workspaces.length > 0) redirect(`/w/${workspaces[0].id}`);
 
+  const { data: auth } = await supabase.auth.getUser();
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
-      <CreateWorkspace />
+      <CreateWorkspace email={auth.user?.email ?? ""} />
     </main>
   );
 }

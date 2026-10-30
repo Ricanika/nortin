@@ -1,5 +1,6 @@
 export type Priority = "urgent" | "high" | "normal" | "low";
 export type StatusType = "open" | "active" | "done" | "closed";
+export type Role = "owner" | "admin" | "member" | "guest";
 
 export interface Workspace {
   id: string;
@@ -46,6 +47,26 @@ export interface Task {
   position: number;
   created_at: string;
   updated_at: string;
+  /** user_ids dos responsáveis (vem de task_assignees) */
+  assignees: string[];
+}
+
+export interface Member {
+  user_id: string;
+  role: Role;
+  email: string | null;
+  full_name: string | null;
+}
+
+export function memberName(m: Pick<Member, "email" | "full_name"> | undefined): string {
+  if (!m) return "Usuário";
+  return m.full_name?.trim() || m.email?.split("@")[0] || "Usuário";
+}
+
+/** Linha do banco com o join task_assignees(user_id) -> Task */
+export function toTask(row: Omit<Task, "assignees"> & { task_assignees?: { user_id: string }[] }): Task {
+  const { task_assignees, ...rest } = row;
+  return { ...rest, assignees: (task_assignees ?? []).map((a) => a.user_id) };
 }
 
 export interface Comment {

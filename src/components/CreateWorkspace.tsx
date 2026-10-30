@@ -4,11 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export default function CreateWorkspace() {
+export default function CreateWorkspace({ email }: { email: string }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -18,6 +19,32 @@ export default function CreateWorkspace() {
     setLoading(false);
     if (error) return setError(error.message);
     router.push(`/w/${data}`);
+  }
+
+  if (!creating) {
+    return (
+      <div className="w-full max-w-sm space-y-4 rounded-xl bg-white p-8 shadow">
+        <h1 className="text-xl font-semibold">Quase lá</h1>
+        <p className="text-sm text-slate-600">
+          Você ainda não faz parte de nenhum workspace. Peça para o administrador da sua equipe adicionar o
+          e-mail <strong>{email}</strong> em Membros. Depois, é só recarregar esta página.
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => router.refresh()}
+            className="flex-1 rounded-md bg-violet-600 py-2 text-sm font-medium text-white hover:bg-violet-700"
+          >
+            Já fui adicionado
+          </button>
+          <form action="/auth/signout" method="post">
+            <button className="rounded-md border px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Sair</button>
+          </form>
+        </div>
+        <button onClick={() => setCreating(true)} className="w-full text-xs text-slate-400 hover:text-violet-600">
+          Sou o administrador: criar um workspace novo
+        </button>
+      </div>
+    );
   }
 
   return (

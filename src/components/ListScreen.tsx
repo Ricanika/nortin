@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import type { List, Status, Task } from "@/lib/types";
+import { memberName, toTask, type List, type Status, type Task } from "@/lib/types";
+import { useWorkspace } from "./WorkspaceContext";
 import ListView from "./ListView";
 import BoardView from "./BoardView";
 import TaskDrawer from "./TaskDrawer";
@@ -17,7 +18,10 @@ export interface TaskActions {
   update: (id: string, patch: TaskPatch) => Promise<void>;
   remove: (id: string) => Promise<void>;
   open: (id: string) => void;
+  assign: (taskId: string, userId: string, assigned: boolean) => Promise<void>;
 }
+
+const TASK_SELECT = "*, task_assignees(user_id)";
 
 const byPosition = (a: { position: number }, b: { position: number }) => a.position - b.position;
 
@@ -27,6 +31,8 @@ export default function ListScreen({ listId }: { listId: string }) {
   const searchParams = useSearchParams();
   const view = searchParams.get("v") === "board" ? "board" : "list";
   const openTaskId = searchParams.get("t");
+  const assigneeFilter = searchParams.get("p");
+  const { workspace, members, me } = useWorkspace();
 
   const supabase = useMemo(() => createClient(), []);
   const [list, setList] = useState<List | null>(null);
@@ -52,7 +58,7 @@ export default function ListScreen({ listId }: { listId: string }) {
       supabase.from("statuses").select("*").eq("list_id", listId).order("position"),
       supabase
         .from("tasks")
-        .select("*")
+        .select(TASK_SELECT)
         .eq("list_id", listId)
         .is("parent_task_id", null)
         .order("position"),
@@ -60,7 +66,7 @@ export default function ListScreen({ listId }: { listId: string }) {
       if (l.error) return setError(l.error.message);
       setList(l.data as List);
       setStatuses((s.data as Status[]) ?? []);
-      setTasks((t.data as Task[]) ?? []);
+      setTasks((t.data ?? []).map(toTask));
     });
   }, [listId, supabase]);
 
@@ -76,14 +82,14 @@ export default function ListScreen({ listId }: { listId: string }) {
         { event: "*", schema: "public", table: "tasks", filter: `list_id=eq.${listId}` },
         (payload) => {
           if (payload.eventType === "DELETE") return;
-          const row = payload.new as Task;
-          setTasks((prev) =>
-            row.parent_task_id
-              ? prev
-              : row.list_id === listId
-                ? upsert(prev, row)
-                : prev.filter((t) => t.id !== row.id),
-          );
+          // O payload não traz os responsáveis: preserva os que já temos.
+          const row = payload.new as Omit<Task, "assignees">;
+          setTasks((prev) => {
+            if (row.parent_task_id) return prev;
+            if (row.list_id !== listId) return prev.filter((t) => t.id !== row.id);
+            const old = prev.find((t) => t.id === row.id);
+            return upsert(prev, { ...row, assignees: old?.assignees ?? [] });
+          });
         },
       )
       // DELETE não aceita filtro no Supabase Realtime
@@ -103,12 +109,30 @@ export default function ListScreen({ listId }: { listId: string }) {
         const id = (payload.old as { id: string }).id;
         setStatuses((prev) => prev.filter((s) => s.id !== id));
       })
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "task_assignees", filter: `workspace_id=eq.${workspace.id}` },
+        (payload) => {
+          const { task_id, user_id } = payload.new as { task_id: string; user_id: string };
+          setTasks((prev) =>
+            prev.map((t) =>
+              t.id === task_id && !t.assignees.includes(user_id) ? { ...t, assignees: [...t.assignees, user_id] } : t,
+            ),
+          );
+        },
+      )
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "task_assignees" }, (payload) => {
+        const { task_id, user_id } = payload.old as { task_id: string; user_id: string };
+        setTasks((prev) =>
+          prev.map((t) => (t.id === task_id ? { ...t, assignees: t.assignees.filter((u) => u !== user_id) } : t)),
+        );
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [listId, supabase]);
+  }, [listId, supabase, workspace.id]);
 
   const actions: TaskActions = {
     async create(title, statusId) {
@@ -116,10 +140,16 @@ export default function ListScreen({ listId }: { listId: string }) {
       const { data, error } = await supabase
         .from("tasks")
         .insert({ list_id: listId, status_id: statusId, title, position: (last?.position ?? 0) + 1000 })
-        .select()
+        .select(TASK_SELECT)
         .single();
       if (error) return setError(error.message);
-      setTasks((prev) => (prev.some((t) => t.id === data.id) ? prev : [...prev, data as Task]));
+      const created = toTask(data);
+      // Com o filtro "pessoa" ativo, a tarefa nova já nasce marcada para ela.
+      if (assigneeFilter) {
+        await supabase.from("task_assignees").insert({ task_id: created.id, user_id: assigneeFilter });
+        created.assignees = [assigneeFilter];
+      }
+      setTasks((prev) => (prev.some((t) => t.id === created.id) ? prev : [...prev, created]));
     },
     async update(id, patch) {
       const before = tasks;
@@ -137,6 +167,24 @@ export default function ListScreen({ listId }: { listId: string }) {
       if (error) setError(error.message);
     },
     open: (id) => setParam("t", id),
+    async assign(taskId, userId, assigned) {
+      const apply = (on: boolean) =>
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id !== taskId
+              ? t
+              : { ...t, assignees: on ? [...new Set([...t.assignees, userId])] : t.assignees.filter((u) => u !== userId) },
+          ),
+        );
+      apply(assigned);
+      const { error } = assigned
+        ? await supabase.from("task_assignees").insert({ task_id: taskId, user_id: userId })
+        : await supabase.from("task_assignees").delete().eq("task_id", taskId).eq("user_id", userId);
+      if (error && error.code !== "23505") {
+        apply(!assigned);
+        setError(error.message);
+      }
+    },
   };
 
   async function addStatus(name: string) {
@@ -168,6 +216,7 @@ export default function ListScreen({ listId }: { listId: string }) {
   const q = query.trim().toLowerCase();
   const visibleTasks = [...tasks]
     .filter((t) => !q || t.title.toLowerCase().includes(q))
+    .filter((t) => !assigneeFilter || t.assignees.includes(assigneeFilter))
     .sort(byPosition);
   const openTask = tasks.find((t) => t.id === openTaskId) ?? null;
 
@@ -175,7 +224,7 @@ export default function ListScreen({ listId }: { listId: string }) {
     <div className="flex h-full min-h-0 flex-col">
       <header className="border-b px-6 pt-4">
         <h1 className="text-lg font-semibold">{list?.name ?? "…"}</h1>
-        <div className="mt-3 flex items-end justify-between gap-4">
+        <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
           <div className="flex gap-1 text-sm">
             {(["list", "board"] as const).map((v) => (
               <button
@@ -191,12 +240,30 @@ export default function ListScreen({ listId }: { listId: string }) {
               </button>
             ))}
           </div>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar tarefas…"
-            className="mb-2 w-56 rounded-md border px-3 py-1 text-sm outline-none focus:border-violet-500"
-          />
+          <div className="mb-2 flex flex-wrap gap-2">
+            <select
+              value={assigneeFilter ?? ""}
+              onChange={(e) => setParam("p", e.target.value || null)}
+              className="rounded-md border px-2 py-1 text-sm outline-none focus:border-violet-500"
+              aria-label="Filtrar por responsável"
+            >
+              <option value="">Todos os responsáveis</option>
+              <option value={me}>Só as minhas</option>
+              {members
+                .filter((m) => m.user_id !== me)
+                .map((m) => (
+                  <option key={m.user_id} value={m.user_id}>
+                    {memberName(m)}
+                  </option>
+                ))}
+            </select>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar tarefas…"
+              className="w-56 rounded-md border px-3 py-1 text-sm outline-none focus:border-violet-500"
+            />
+          </div>
         </div>
       </header>
 
