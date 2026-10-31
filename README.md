@@ -52,9 +52,12 @@ banco (RLS e triggers), não só na tela.
    cp .env.example .env.local
    ```
    Preencha com a URL e a anon key (Project Settings → API).
-4. Opcional para desenvolvimento: em Authentication → Providers → Email, desligue
+4. Opcional, para criar tarefas por áudio com IA (várias tarefas num áudio só): crie uma chave grátis em
+   https://aistudio.google.com/apikey e configure `GEMINI_API_KEY` (no `.env.local` e na Vercel).
+   Sem ela, o microfone usa o ditado do navegador, uma tarefa por vez.
+5. Opcional para desenvolvimento: em Authentication → Providers → Email, desligue
    "Confirm email" para entrar logo após o cadastro.
-5. Suba o app:
+6. Suba o app:
    ```bash
    npm install
    npm run dev
@@ -65,6 +68,8 @@ banco (RLS e triggers), não só na tela.
 
 - [x] Fase 1: hierarquia, tarefas, status, Lista, Quadro, subtarefas, comentários, realtime
 - [x] Fase 2: responsáveis, membros por e-mail, "Minhas tarefas", só o dono cria Spaces
+- [x] UX: "Meu dia", criação rápida (botão, tecla N, frase com @nome/amanhã/!urgente), criar por áudio,
+      concluir com 1 clique, edição direto na linha, "Desfazer" no lugar de confirmações
 - [ ] Folders na sidebar, convite por link
 - [ ] Fase 3: Custom Fields (`custom_fields` + `task_custom_values` jsonb)
 - [x] Calendário (por lista e em Minhas tarefas), com arrastar para mudar o prazo

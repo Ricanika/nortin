@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { PRIORITIES, type Comment, type Priority, type Status, type Task } from "@/lib/types";
+import type { Comment, Status, Task } from "@/lib/types";
 import type { TaskActions } from "./ListScreen";
 import { AssigneePicker } from "./TaskBits";
+import { DuePicker, PriorityPicker, StatusPicker } from "./InlineEditors";
 import { useWorkspace } from "./WorkspaceContext";
 
 export default function TaskDrawer({
@@ -112,11 +113,18 @@ export default function TaskDrawer({
           >
             {status?.name ?? "Sem status"}
           </span>
-          <div className="flex gap-3">
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => confirm("Excluir esta tarefa?") && actions.remove(task.id)}
-              className="text-slate-400 hover:text-red-600"
+              onClick={() => actions.toggleDone(task.id)}
+              className={`rounded-md px-3 py-1 font-medium ${
+                status?.type === "done"
+                  ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                  : "bg-emerald-600 text-white hover:bg-emerald-700"
+              }`}
             >
+              {status?.type === "done" ? "✓ Concluída" : "✓ Concluir"}
+            </button>
+            <button onClick={() => actions.remove(task.id)} className="text-slate-400 hover:text-red-600">
               Excluir
             </button>
             <button onClick={onClose} className="text-slate-400 hover:text-slate-800">
@@ -136,17 +144,9 @@ export default function TaskDrawer({
 
           <div className="grid grid-cols-[110px_1fr] items-center gap-y-3 text-sm">
             <span className="text-slate-500">Status</span>
-            <select
-              value={task.status_id ?? ""}
-              onChange={(e) => actions.update(task.id, { status_id: e.target.value })}
-              className="w-48 rounded border px-2 py-1"
-            >
-              {statuses.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+            <div className="w-40">
+              <StatusPicker statuses={statuses} value={task.status_id} onChange={(status_id) => actions.update(task.id, { status_id })} />
+            </div>
 
             <span className="text-slate-500">Responsáveis</span>
             <div>
@@ -158,28 +158,14 @@ export default function TaskDrawer({
             </div>
 
             <span className="text-slate-500">Prioridade</span>
-            <select
-              value={task.priority ?? ""}
-              onChange={(e) =>
-                actions.update(task.id, { priority: (e.target.value || null) as Priority | null })
-              }
-              className="w-48 rounded border px-2 py-1"
-            >
-              <option value="">Sem prioridade</option>
-              {PRIORITIES.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
+            <div>
+              <PriorityPicker value={task.priority} onChange={(priority) => actions.update(task.id, { priority })} />
+            </div>
 
             <span className="text-slate-500">Prazo</span>
-            <input
-              type="date"
-              value={task.due_date ?? ""}
-              onChange={(e) => actions.update(task.id, { due_date: e.target.value || null })}
-              className="w-48 rounded border px-2 py-1"
-            />
+            <div>
+              <DuePicker value={task.due_date} done={status?.type === "done"} onChange={(due_date) => actions.update(task.id, { due_date })} />
+            </div>
           </div>
 
           <div>

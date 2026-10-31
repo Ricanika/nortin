@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { parseQuick } from "@/lib/quickParse";
 import type { Status, Task } from "@/lib/types";
 import type { TaskActions } from "./ListScreen";
-import { AssigneePicker, DueDate, NewTaskInput, PriorityFlag } from "./TaskBits";
+import { CompleteToggle, DuePicker, PriorityPicker, StatusPicker } from "./InlineEditors";
+import { AssigneePicker, NewTaskInput } from "./TaskBits";
 import { useWorkspace } from "./WorkspaceContext";
 
-const COLS = "grid-cols-[minmax(180px,1fr)_130px_150px_110px_90px_32px]";
+const COLS = "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_32px]";
 
 export default function ListView({
   statuses,
@@ -21,9 +23,10 @@ export default function ListView({
   const { members } = useWorkspace();
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 pb-28 sm:p-6">
       {statuses.map((status) => {
         const group = tasks.filter((t) => t.status_id === status.id);
+        const isDone = status.type === "done" || status.type === "closed";
         return (
           <section key={status.id}>
             <button
@@ -31,19 +34,16 @@ export default function ListView({
               className="mb-2 flex items-center gap-2 text-sm"
             >
               <span className="w-3 text-slate-400">{collapsed[status.id] ? "▸" : "▾"}</span>
-              <span
-                className="rounded px-2 py-0.5 text-xs font-semibold uppercase text-white"
-                style={{ background: status.color }}
-              >
+              <span className="rounded px-2 py-0.5 text-xs font-semibold uppercase text-white" style={{ background: status.color }}>
                 {status.name}
               </span>
               <span className="text-slate-400">{group.length}</span>
             </button>
 
             {!collapsed[status.id] && (
-              <div className="ml-5 overflow-x-auto">
-                <div className={`grid ${COLS} min-w-[720px] border-b px-2 pb-1 text-xs text-slate-400`}>
-                  <span>Nome</span>
+              <div className="overflow-x-auto sm:ml-5">
+                <div className={`grid ${COLS} min-w-[700px] border-b px-2 pb-1 text-xs text-slate-400`}>
+                  <span className="pl-7">Nome</span>
                   <span>Responsáveis</span>
                   <span>Status</span>
                   <span>Prioridade</span>
@@ -53,40 +53,34 @@ export default function ListView({
                 {group.map((task) => (
                   <div
                     key={task.id}
-                    className={`group grid ${COLS} min-w-[720px] items-center border-b px-2 py-1.5 text-sm hover:bg-slate-50`}
+                    className={`group grid ${COLS} min-w-[700px] items-center border-b px-2 py-1.5 text-sm hover:bg-slate-50`}
                   >
-                    <button
-                      onClick={() => actions.open(task.id)}
-                      className="flex items-center gap-2 truncate text-left hover:text-violet-700"
-                    >
-                      <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ background: status.color }}
-                      />
-                      <span className={`truncate ${status.type === "done" ? "text-slate-400 line-through" : ""}`}>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <CompleteToggle done={isDone} color={status.color} onToggle={() => actions.toggleDone(task.id)} />
+                      <button
+                        onClick={() => actions.open(task.id)}
+                        className={`truncate text-left hover:text-violet-700 ${isDone ? "text-slate-400 line-through" : ""}`}
+                      >
                         {task.title}
-                      </span>
-                    </button>
+                      </button>
+                    </div>
                     <AssigneePicker
                       value={task.assignees}
                       members={members}
                       onToggle={(userId, on) => actions.assign(task.id, userId, on)}
                     />
-                    <select
-                      value={task.status_id ?? ""}
-                      onChange={(e) => actions.update(task.id, { status_id: e.target.value })}
-                      className="w-36 rounded bg-transparent text-xs outline-none hover:bg-slate-100"
-                    >
-                      {statuses.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
-                    <PriorityFlag priority={task.priority} />
-                    <DueDate date={task.due_date} />
+                    <div className="min-w-0 pr-2">
+                      <StatusPicker
+                        statuses={statuses}
+                        value={task.status_id}
+                        onChange={(status_id) => actions.update(task.id, { status_id })}
+                      />
+                    </div>
+                    <PriorityPicker value={task.priority} onChange={(priority) => actions.update(task.id, { priority })} />
+                    <DuePicker value={task.due_date} done={isDone} onChange={(due_date) => actions.update(task.id, { due_date })} />
                     <button
                       title="Excluir"
+                      aria-label="Excluir tarefa"
                       onClick={() => actions.remove(task.id)}
                       className="invisible text-slate-400 hover:text-red-600 group-hover:visible"
                     >
@@ -96,7 +90,11 @@ export default function ListView({
                 ))}
                 <NewTaskInput
                   className="block w-full px-2 py-1.5"
-                  onCreate={(title) => actions.create(title, status.id)}
+                  onCreate={async (text) => {
+                    const p = parseQuick(text, members);
+                    if (!p.title) return;
+                    await actions.create(p.title, status.id, { due_date: p.due, priority: p.priority }, p.assignees);
+                  }}
                 />
               </div>
             )}

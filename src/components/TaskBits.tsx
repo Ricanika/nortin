@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import Popover from "./Popover";
 import { memberName, PRIORITIES, type Member, type Priority } from "@/lib/types";
 
 const AVATAR_COLORS = ["#7c3aed", "#2563eb", "#059669", "#d97706", "#db2777", "#0891b2", "#4f46e5", "#65a30d"];
@@ -57,34 +58,23 @@ export function AssigneePicker({
   members: Member[];
   onToggle: (userId: string, assigned: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open]);
-
   return (
-    <div ref={ref} className="relative inline-block">
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen(!open);
-        }}
-        className="flex min-h-[26px] items-center gap-1 rounded px-1 hover:bg-slate-100"
-        title="Responsáveis"
-      >
-        {value.length ? <AvatarStack ids={value} members={members} /> : <span className="text-xs text-slate-400">+ Responsável</span>}
-      </button>
-      {open && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="absolute left-0 top-full z-30 mt-1 max-h-64 w-60 overflow-y-auto rounded-md border bg-white py-1 shadow-lg"
-        >
+    <Popover
+      label="Responsáveis"
+      width={240}
+      triggerClassName="flex min-h-[26px] items-center gap-1 rounded px-1 hover:bg-slate-100"
+      trigger={
+        value.length ? (
+          <AvatarStack ids={value} members={members} />
+        ) : (
+          <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full border border-dashed border-slate-300 text-xs text-slate-400">
+            +
+          </span>
+        )
+      }
+    >
+      {() => (
+        <>
           {members.map((m) => {
             const on = value.includes(m.user_id);
             return (
@@ -101,13 +91,11 @@ export function AssigneePicker({
             );
           })}
           {members.length <= 1 && (
-            <p className="px-3 py-2 text-xs text-slate-400">
-              Adicione pessoas em Membros para poder marcá-las.
-            </p>
+            <p className="px-3 py-2 text-xs text-slate-400">Adicione pessoas em Membros para poder marcá-las.</p>
           )}
-        </div>
+        </>
       )}
-    </div>
+    </Popover>
   );
 }
 
@@ -175,7 +163,7 @@ export function NewTaskInput({
             setOpen(false);
           }
         }}
-        placeholder="Nome da tarefa e Enter"
+        placeholder="Ex.: Ligar pro Assaí @bia amanhã — Enter cria"
         className="w-full rounded border border-violet-400 px-2 py-1 text-sm outline-none"
       />
     </form>

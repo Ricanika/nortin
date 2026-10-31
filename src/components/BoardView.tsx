@@ -17,7 +17,9 @@ import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } 
 import { CSS } from "@dnd-kit/utilities";
 import { positionBetween, type Status, type Task } from "@/lib/types";
 import type { TaskActions } from "./ListScreen";
+import { parseQuick } from "@/lib/quickParse";
 import { AvatarStack, DueDate, NewTaskInput, PriorityFlag } from "./TaskBits";
+import { CompleteToggle, DuePicker } from "./InlineEditors";
 import { useWorkspace } from "./WorkspaceContext";
 
 type Columns = Record<string, string[]>; // statusId -> taskIds em ordem
@@ -161,6 +163,8 @@ function Column({
   onRemove: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status.id });
+  const { members } = useWorkspace();
+  const done = status.type === "done" || status.type === "closed";
 
   return (
     <div className="flex max-h-full w-72 shrink-0 flex-col rounded-lg bg-slate-100">
@@ -185,17 +189,23 @@ function Column({
         >
           {taskIds.map((id) => {
             const task = taskById.get(id);
-            return task ? <SortableCard key={id} task={task} onOpen={() => actions.open(id)} /> : null;
+            return task ? <SortableCard key={id} task={task} done={done} actions={actions} /> : null;
           })}
         </div>
       </SortableContext>
 
-      <NewTaskInput className="block w-full px-3 pb-3" onCreate={(t) => actions.create(t, status.id)} />
+      <NewTaskInput
+        className="block w-full px-3 pb-3"
+        onCreate={async (text) => {
+          const p = parseQuick(text, members);
+          if (p.title) await actions.create(p.title, status.id, { due_date: p.due, priority: p.priority }, p.assignees);
+        }}
+      />
     </div>
   );
 }
 
-function SortableCard({ task, onOpen }: { task: Task; onOpen: () => void }) {
+function SortableCard({ task, done, actions }: { task: Task; done: boolean; actions: TaskActions }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
   });
@@ -204,16 +214,27 @@ function SortableCard({ task, onOpen }: { task: Task; onOpen: () => void }) {
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={isDragging ? "opacity-30" : ""}
-      onClick={onOpen}
+      onClick={() => actions.open(task.id)}
       {...attributes}
       {...listeners}
     >
-      <Card task={task} />
+      <Card task={task} done={done} actions={actions} />
     </div>
   );
 }
 
-function Card({ task, dragging = false }: { task: Task; dragging?: boolean }) {
+/** Sem `actions` (no arraste), o cartão é só visual. */
+function Card({
+  task,
+  done = false,
+  actions,
+  dragging = false,
+}: {
+  task: Task;
+  done?: boolean;
+  actions?: TaskActions;
+  dragging?: boolean;
+}) {
   const { members } = useWorkspace();
   return (
     <div
@@ -221,11 +242,22 @@ function Card({ task, dragging = false }: { task: Task; dragging?: boolean }) {
         dragging ? "rotate-2 shadow-lg" : ""
       }`}
     >
-      <p className="mb-2 break-words">{task.title}</p>
+      <div className="mb-2 flex items-start gap-2">
+        {actions && (
+          <span className="pt-px">
+            <CompleteToggle done={done} onToggle={() => actions.toggleDone(task.id)} size={16} />
+          </span>
+        )}
+        <p className={`min-w-0 flex-1 break-words ${done ? "text-slate-400 line-through" : ""}`}>{task.title}</p>
+      </div>
       <div className="flex items-center justify-between gap-2">
         <PriorityFlag priority={task.priority} />
         <span className="flex items-center gap-2">
-          <DueDate date={task.due_date} />
+          {actions ? (
+            <DuePicker value={task.due_date} done={done} onChange={(due_date) => actions.update(task.id, { due_date })} />
+          ) : (
+            <DueDate date={task.due_date} />
+          )}
           {task.assignees.length > 0 && <AvatarStack ids={task.assignees} members={members} />}
         </span>
       </div>

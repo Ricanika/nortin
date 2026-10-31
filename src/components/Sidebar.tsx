@@ -109,6 +109,7 @@ export default function Sidebar({
 
       <nav className="flex-1 space-y-1 overflow-y-auto p-2">
         {[
+          { href: `/w/${workspace.id}`, label: "Meu dia", icon: "☀️", show: true },
           { href: `/w/${workspace.id}/me`, label: "Minhas tarefas", icon: "◎", show: true },
           { href: `/w/${workspace.id}/members`, label: "Membros", icon: "👥", show: isAdmin },
         ]

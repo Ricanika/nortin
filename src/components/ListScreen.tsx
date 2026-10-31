@@ -9,17 +9,20 @@ import ListView from "./ListView";
 import BoardView from "./BoardView";
 import TaskDrawer from "./TaskDrawer";
 import CalendarView from "./CalendarView";
+import { useToast } from "./Toast";
+import { toggleTarget } from "@/lib/tasks";
 
 export type TaskPatch = Partial<
   Pick<Task, "title" | "description" | "status_id" | "priority" | "due_date" | "position">
 >;
 
 export interface TaskActions {
-  create: (title: string, statusId: string, extra?: TaskPatch) => Promise<void>;
+  create: (title: string, statusId: string, extra?: TaskPatch, assignees?: string[]) => Promise<void>;
   update: (id: string, patch: TaskPatch) => Promise<void>;
   remove: (id: string) => Promise<void>;
   open: (id: string) => void;
   assign: (taskId: string, userId: string, assigned: boolean) => Promise<void>;
+  toggleDone: (id: string) => Promise<void>;
 }
 
 const TASK_SELECT = "*, task_assignees(user_id)";
@@ -35,6 +38,7 @@ export default function ListScreen({ listId }: { listId: string }) {
   const openTaskId = searchParams.get("t");
   const assigneeFilter = searchParams.get("p");
   const { workspace, members, me } = useWorkspace();
+  const toast = useToast();
 
   const supabase = useMemo(() => createClient(), []);
   const [list, setList] = useState<List | null>(null);
@@ -137,7 +141,7 @@ export default function ListScreen({ listId }: { listId: string }) {
   }, [listId, supabase, workspace.id]);
 
   const actions: TaskActions = {
-    async create(title, statusId, extra) {
+    async create(title, statusId, extra, assignees = []) {
       const last = tasks.filter((t) => t.status_id === statusId).sort(byPosition).at(-1);
       const { data, error } = await supabase
         .from("tasks")
@@ -147,9 +151,10 @@ export default function ListScreen({ listId }: { listId: string }) {
       if (error) return setError(error.message);
       const created = toTask(data);
       // Com o filtro "pessoa" ativo, a tarefa nova já nasce marcada para ela.
-      if (assigneeFilter) {
-        await supabase.from("task_assignees").insert({ task_id: created.id, user_id: assigneeFilter });
-        created.assignees = [assigneeFilter];
+      const who = [...new Set([...assignees, ...(assigneeFilter ? [assigneeFilter] : [])])];
+      if (who.length) {
+        await supabase.from("task_assignees").insert(who.map((user_id) => ({ task_id: created.id, user_id })));
+        created.assignees = who;
       }
       setTasks((prev) => (prev.some((t) => t.id === created.id) ? prev : [...prev, created]));
     },
@@ -162,11 +167,36 @@ export default function ListScreen({ listId }: { listId: string }) {
         setError(error.message);
       }
     },
+    // Exclui de verdade só depois de 5 s: até lá, "Desfazer" devolve a tarefa.
     async remove(id) {
+      const task = tasks.find((t) => t.id === id);
+      if (!task) return;
       setTasks((prev) => prev.filter((t) => t.id !== id));
       if (openTaskId === id) setParam("t", null);
-      const { error } = await supabase.from("tasks").delete().eq("id", id);
-      if (error) setError(error.message);
+      let undone = false;
+      toast("Tarefa excluída", {
+        undo: () => {
+          undone = true;
+          setTasks((prev) => (prev.some((t) => t.id === id) ? prev : [...prev, task]));
+        },
+      });
+      setTimeout(async () => {
+        if (undone) return;
+        const { error } = await supabase.from("tasks").delete().eq("id", id);
+        if (error) setError(error.message);
+      }, 5200);
+    },
+    async toggleDone(id) {
+      const task = tasks.find((t) => t.id === id);
+      if (!task) return;
+      const target = toggleTarget(statuses, task.status_id);
+      if (!target || !task.status_id) return;
+      const previous = task.status_id;
+      const wasDone = statuses.find((s) => s.id === previous)?.type === "done";
+      await actions.update(id, { status_id: target.id });
+      toast(wasDone ? "Tarefa reaberta" : "Tarefa concluída ✓", {
+        undo: () => void actions.update(id, { status_id: previous }),
+      });
     },
     open: (id) => setParam("t", id),
     async assign(taskId, userId, assigned) {

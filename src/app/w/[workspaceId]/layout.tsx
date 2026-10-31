@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Sidebar from "@/components/Sidebar";
 import { WorkspaceProvider } from "@/components/WorkspaceContext";
+import { ToastProvider } from "@/components/Toast";
+import { QuickAddProvider } from "@/components/QuickAdd";
 import type { Member, Role } from "@/lib/types";
 
 export default async function WorkspaceLayout({
@@ -34,10 +36,14 @@ export default async function WorkspaceLayout({
 
   return (
     <WorkspaceProvider value={{ workspace, members, me: auth.user.id, role }}>
-      <div className="flex h-screen overflow-hidden">
-        <Sidebar workspaces={workspaces ?? []} userEmail={auth.user.email ?? ""} />
-        <main className="flex min-w-0 flex-1 flex-col">{children}</main>
-      </div>
+      <ToastProvider>
+        <QuickAddProvider>
+          <div className="flex h-screen overflow-hidden">
+            <Sidebar workspaces={workspaces ?? []} userEmail={auth.user.email ?? ""} />
+            <main className="flex min-w-0 flex-1 flex-col">{children}</main>
+          </div>
+        </QuickAddProvider>
+      </ToastProvider>
     </WorkspaceProvider>
   );
 }
