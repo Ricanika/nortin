@@ -81,7 +81,9 @@ export function DuePicker({
               }}
             >
               {s.label}
-              <span className="text-xs text-slate-400">{friendlyDate(s.date)}</span>
+              <span className="text-xs tabular-nums text-slate-400">
+                {s.date.slice(8)}/{s.date.slice(5, 7)}
+              </span>
             </button>
           ))}
           <div className="border-t px-3 py-2">
