@@ -34,6 +34,43 @@ export default function Sidebar({
   const [editing, setEditing] = useState<Editing>(null);
   const [draft, setDraft] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [openCounts, setOpenCounts] = useState<Record<string, number>>({});
+
+  // Contador ao lado de cada lista: tarefas em aberto (sem subtarefas e sem concluídas)
+  useEffect(() => {
+    const supabase = createClient();
+    let timer: ReturnType<typeof setTimeout>;
+    const loadCounts = async () => {
+      const { data } = await supabase
+        .from("tasks")
+        .select("list_id, statuses(type)")
+        .eq("workspace_id", workspace.id)
+        .is("parent_task_id", null)
+        .limit(10000);
+      const counts: Record<string, number> = {};
+      for (const t of data ?? []) {
+        const type = (t.statuses as unknown as { type: string } | null)?.type;
+        if (type === "done" || type === "closed") continue;
+        counts[t.list_id] = (counts[t.list_id] ?? 0) + 1;
+      }
+      setOpenCounts(counts);
+    };
+    const reload = () => {
+      clearTimeout(timer);
+      timer = setTimeout(loadCounts, 600);
+    };
+    loadCounts();
+    const channel = supabase
+      .channel(`sidebar-counts:${workspace.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `workspace_id=eq.${workspace.id}` }, reload)
+      // DELETE não aceita filtro no Supabase Realtime
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "tasks" }, reload)
+      .subscribe();
+    return () => {
+      clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [workspace.id]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -285,8 +322,24 @@ export default function Sidebar({
                           active ? "bg-violet-100 font-medium text-violet-700" : "hover:bg-slate-200"
                         }`}
                       >
-                        <Link href={href} className="min-w-0 flex-1 truncate px-2 py-1">
-                          {list.name}
+                        <Link href={href} className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1">
+                          <svg
+                            viewBox="0 0 16 16"
+                            className="h-3.5 w-3.5 shrink-0 text-slate-400"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M2 4l1.2 1.2L5.5 3M2 9l1.2 1.2L5.5 8M8 4.2h6M8 9.2h6M8 13h6M2.5 13h2" />
+                          </svg>
+                          <span className="truncate">{list.name}</span>
+                          {openCounts[list.id] ? (
+                            <span className="ml-auto shrink-0 text-xs font-normal tabular-nums text-slate-400 group-hover:hidden">
+                              {openCounts[list.id]}
+                            </span>
+                          ) : null}
                         </Link>
                         <Popover
                           label={`Opções de ${list.name}`}
