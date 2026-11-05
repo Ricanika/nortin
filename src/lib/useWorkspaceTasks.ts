@@ -89,7 +89,8 @@ export function useWorkspaceTasks(workspaceId: string) {
   async function update(ids: string[], patch: { due_date?: string | null; priority?: Priority | null }) {
     patchLocal(ids, (t) => ({ ...t, ...patch }));
     const { error } = await supabase.from("tasks").update(patch).in("id", ids);
-    if (error) fail(error.message);
+    if (error) return fail(error.message);
+    if (ids.length > 1) toast(`${ids.length} tarefas atualizadas`);
   }
 
   async function setStatus(id: string, statusId: string) {

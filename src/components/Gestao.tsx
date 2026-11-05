@@ -316,7 +316,9 @@ export default function Gestao() {
           style={{ bottom: "max(5rem, calc(env(safe-area-inset-bottom) + 4.5rem))" }}
         >
           <div className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm text-white shadow-2xl">
-            <span className="font-semibold">{selected.size} selecionadas</span>
+            <span className="font-semibold">
+              {selected.size} {selected.size === 1 ? "selecionada" : "selecionadas"}
+            </span>
             <span className="mx-1 h-5 w-px bg-slate-700" />
             <span className="rounded bg-white/10 [&_button]:text-white">
               <DuePicker value={null} onChange={(due_date) => void update(ids, { due_date })} />
@@ -353,7 +355,9 @@ interface RowProps {
   onAssign: (id: string, userId: string, on: boolean) => void;
 }
 
-const COLS = "grid-cols-[28px_minmax(220px,1fr)_180px_96px_130px_96px_104px]";
+const COLS = "grid-cols-[28px_minmax(220px,1fr)_180px_96px_130px_96px_104px] min-w-[880px]";
+// Na aba "Sem prazo" a última coluna leva os botões Hoje / Amanhã / Seg
+const COLS_QUICK = "grid-cols-[28px_minmax(220px,1fr)_180px_96px_130px_96px_230px] min-w-[1000px]";
 
 function TaskTable({
   tasks,
@@ -366,7 +370,7 @@ function TaskTable({
   if (tasks.length === 0) return <p className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-slate-500">{empty}</p>;
   return (
     <div className="overflow-x-auto">
-      <div className={`grid ${COLS} min-w-[880px] items-center gap-2 border-b px-2 pb-1.5 text-xs text-slate-400`}>
+      <div className={`grid ${quickDue ? COLS_QUICK : COLS} items-center gap-2 border-b px-2 pb-1.5 text-xs text-slate-400`}>
         <input type="checkbox" checked={allSelected} onChange={onSelectAll} aria-label="Selecionar todas" className="h-4 w-4 accent-violet-600" />
         <span className="pl-7">Tarefa</span>
         <span>Space / Lista</span>
@@ -399,7 +403,7 @@ function TaskRow({
   const base = new Date();
   return (
     <div
-      className={`grid ${COLS} min-w-[880px] items-center gap-2 border-b px-2 py-1.5 text-sm hover:bg-slate-50 ${
+      className={`grid ${quickDue ? COLS_QUICK : COLS} items-center gap-2 border-b px-2 py-1.5 text-sm hover:bg-slate-50 ${
         selected.has(t.id) ? "bg-violet-50/60" : ""
       }`}
     >
