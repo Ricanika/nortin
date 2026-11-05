@@ -23,6 +23,7 @@ export default function Members() {
   const [email, setEmail] = useState("");
   const [msg, setMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [wsName, setWsName] = useState(workspace.name);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
 
   if (!isAdmin) {
@@ -48,6 +49,16 @@ export default function Members() {
     }
     setMsg({ tone: "ok", text: `${email.trim()} agora faz parte do workspace.` });
     setEmail("");
+    router.refresh();
+  }
+
+  async function renameWorkspace(e: React.FormEvent) {
+    e.preventDefault();
+    const name = wsName.trim();
+    if (!name || name === workspace.name) return;
+    const { error } = await createClient().from("workspaces").update({ name }).eq("id", workspace.id);
+    if (error) return setMsg({ tone: "err", text: error.message });
+    setMsg({ tone: "ok", text: `Workspace renomeado para ${name}.` });
     router.refresh();
   }
 
@@ -82,6 +93,26 @@ export default function Members() {
             Só o dono cria, renomeia e exclui Spaces.
           </p>
         </header>
+
+        <form onSubmit={renameWorkspace} className="space-y-2">
+          <label htmlFor="ws-name" className="text-sm font-medium">
+            Nome do workspace
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <input
+              id="ws-name"
+              value={wsName}
+              onChange={(e) => setWsName(e.target.value)}
+              className="min-w-0 flex-1 rounded-md border px-3 py-2 text-sm outline-none focus:border-violet-500"
+            />
+            <button
+              disabled={!wsName.trim() || wsName.trim() === workspace.name}
+              className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-40"
+            >
+              Renomear
+            </button>
+          </div>
+        </form>
 
         <form onSubmit={add} className="space-y-2">
           <label htmlFor="member-email" className="text-sm font-medium">
