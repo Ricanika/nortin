@@ -43,7 +43,7 @@ export default function Members() {
     if (data === "not_found") {
       return setMsg({
         tone: "err",
-        text: `Ainda não existe conta com ${email.trim()}. Peça para a pessoa se cadastrar no Nortin com esse e-mail e depois adicione de novo.`,
+        text: `Ainda não existe conta com ${email.trim()}. Peça para a pessoa se cadastrar no Hyak Group com esse e-mail e depois adicione de novo.`,
       });
     }
     setMsg({ tone: "ok", text: `${email.trim()} agora faz parte do workspace.` });
@@ -103,7 +103,7 @@ export default function Members() {
               {busy ? "Adicionando…" : "Adicionar"}
             </button>
           </div>
-          <p className="text-xs text-slate-400">A pessoa precisa ter criado a conta no Nortin antes.</p>
+          <p className="text-xs text-slate-400">A pessoa precisa ter criado a conta no Hyak Group antes.</p>
           {msg && (
             <p className={`text-sm ${msg.tone === "ok" ? "text-emerald-600" : "text-red-600"}`}>{msg.text}</p>
           )}

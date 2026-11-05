@@ -1,4 +1,4 @@
-# Nortin
+# Hyak Group
 
 Gestor de tarefas inspirado no modelo de produtividade de ferramentas como o ClickUp
 (funcionalidade recriada do zero — sem marca, código ou assets de terceiros).

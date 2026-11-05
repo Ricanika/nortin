@@ -37,7 +37,7 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
       <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-xl bg-white p-8 shadow">
         <h1 className="text-2xl font-semibold">
-          <span className="text-violet-600">Nortin</span>
+          <span className="text-violet-600">Hyak Group</span>
         </h1>
         <p className="text-sm text-slate-500">
           {mode === "signin" ? "Entre na sua conta" : "Crie sua conta"}
