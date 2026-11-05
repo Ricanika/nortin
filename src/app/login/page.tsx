@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -12,6 +12,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("confirmed")) setInfo("E-mail confirmado. Agora é só entrar.");
+  }, []);
   const [loading, setLoading] = useState(false);
 
   async function submit(e: React.FormEvent) {
@@ -23,7 +27,11 @@ export default function LoginPage() {
     const { data, error } =
       mode === "signin"
         ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({ email, password, options: { data: { full_name: name.trim() } } });
+        : await supabase.auth.signUp({
+            email,
+            password,
+            options: { data: { full_name: name.trim() }, emailRedirectTo: `${window.location.origin}/auth/callback` },
+          });
     setLoading(false);
     if (error) return setError(error.message);
     if (mode === "signup" && !data.session) {
