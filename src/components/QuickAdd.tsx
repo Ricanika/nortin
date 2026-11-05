@@ -7,7 +7,7 @@ import { friendlyDate, todayISO } from "@/lib/dates";
 import { parseQuick } from "@/lib/quickParse";
 import { createTaskFull } from "@/lib/tasks";
 import { startWavRecording, type WavRecording } from "@/lib/wavRecorder";
-import { memberName, PRIORITIES, type Priority } from "@/lib/types";
+import { memberName, PRIORITIES, RECURRENCES, type Priority, type Recurrence } from "@/lib/types";
 import { DuePicker, PriorityPicker } from "./InlineEditors";
 import { AssigneePicker, Avatar } from "./TaskBits";
 import { useToast } from "./Toast";
@@ -26,6 +26,7 @@ interface Draft {
   assignees: string[];
   due: string | null;
   priority: Priority | null;
+  recurrence: Recurrence | null;
   listId: string;
 }
 
@@ -277,12 +278,20 @@ export function QuickAddProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) throw new Error(json.error ?? "Falha ao entender o áudio");
       setTranscript(json.transcript ?? "");
       const got: Draft[] = (json.tasks ?? []).map(
-        (t: { title: string; assignees: string[]; due: string | null; priority: Priority | null; listId: string | null }) => ({
+        (t: {
+          title: string;
+          assignees: string[];
+          due: string | null;
+          priority: Priority | null;
+          recurrence: Recurrence | null;
+          listId: string | null;
+        }) => ({
           key: ++draftSeq.current,
           title: t.title,
           assignees: t.assignees,
           due: t.due,
           priority: t.priority,
+          recurrence: t.recurrence ?? null,
           listId: t.listId ?? listId,
         }),
       );
@@ -426,6 +435,11 @@ export function QuickAddProvider({ children }: { children: React.ReactNode }) {
                     {parsed.due && (
                       <span className="rounded-full bg-amber-50 px-2 py-1 text-amber-700">📅 {friendlyDate(parsed.due)}</span>
                     )}
+                    {parsed.recurrence && (
+                      <span className="rounded-full bg-violet-50 px-2 py-1 text-violet-700">
+                        🔁 {RECURRENCES.find((r) => r.value === parsed.recurrence)?.label}
+                      </span>
+                    )}
                     {priorityInfo && (
                       <span className="rounded-full bg-slate-50 px-2 py-1" style={{ color: priorityInfo.color }}>
                         ⚑ {priorityInfo.label}
@@ -435,7 +449,8 @@ export function QuickAddProvider({ children }: { children: React.ReactNode }) {
                 ) : (
                   <p className="text-xs text-slate-400">
                     Escreva ou fale do seu jeito: <b>@nome</b> ou &quot;pra Bia&quot; marca o responsável;{" "}
-                    <b>hoje, amanhã, sexta, dia 15, 05/11</b> viram prazo; <b>urgente</b> ou <b>!alta</b> viram prioridade.
+                    <b>hoje, amanhã, sexta, dia 15, 05/11</b> viram prazo; <b>toda sexta, todo dia, todo mês</b> repetem;{" "}
+                    <b>urgente</b> ou <b>!alta</b> viram prioridade.
                     Enter cria e já deixa pronto para a próxima.
                   </p>
                 )}
@@ -521,7 +536,12 @@ export function QuickAddProvider({ children }: { children: React.ReactNode }) {
                             patchDraft(d.key, { assignees: on ? [...d.assignees, uid] : d.assignees.filter((x) => x !== uid) })
                           }
                         />
-                        <DuePicker value={d.due} onChange={(due) => patchDraft(d.key, { due })} />
+                        <DuePicker
+                          value={d.due}
+                          onChange={(due) => patchDraft(d.key, { due })}
+                          recurrence={d.recurrence}
+                          onRecurrenceChange={(recurrence) => patchDraft(d.key, { recurrence })}
+                        />
                         <PriorityPicker value={d.priority} onChange={(priority) => patchDraft(d.key, { priority })} />
                         <select
                           value={d.listId}

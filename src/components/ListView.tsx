@@ -77,7 +77,13 @@ export default function ListView({
                       />
                     </div>
                     <PriorityPicker value={task.priority} onChange={(priority) => actions.update(task.id, { priority })} />
-                    <DuePicker value={task.due_date} done={isDone} onChange={(due_date) => actions.update(task.id, { due_date })} />
+                    <DuePicker
+                      value={task.due_date}
+                      done={isDone}
+                      onChange={(due_date) => actions.update(task.id, { due_date })}
+                      recurrence={task.recurrence}
+                      onRecurrenceChange={(recurrence) => actions.update(task.id, { recurrence })}
+                    />
                     <button
                       title="Excluir"
                       aria-label="Excluir tarefa"
@@ -93,7 +99,7 @@ export default function ListView({
                   onCreate={async (text) => {
                     const p = parseQuick(text, members);
                     if (!p.title) return;
-                    await actions.create(p.title, status.id, { due_date: p.due, priority: p.priority }, p.assignees);
+                    await actions.create(p.title, status.id, { due_date: p.due, priority: p.priority, recurrence: p.recurrence }, p.assignees);
                   }}
                 />
               </div>

@@ -13,7 +13,7 @@ import { useToast } from "./Toast";
 import { notifyStructureChanged, STRUCTURE_EVENT, toggleTarget } from "@/lib/tasks";
 
 export type TaskPatch = Partial<
-  Pick<Task, "title" | "description" | "status_id" | "priority" | "due_date" | "position">
+  Pick<Task, "title" | "description" | "status_id" | "priority" | "due_date" | "position" | "recurrence">
 >;
 
 export interface TaskActions {
@@ -219,7 +219,8 @@ export default function ListScreen({ listId }: { listId: string }) {
       const previous = task.status_id;
       const wasDone = statuses.find((s) => s.id === previous)?.type === "done";
       await actions.update(id, { status_id: target.id });
-      toast(wasDone ? "Tarefa reaberta" : "Tarefa concluída ✓", {
+      const repeats = !wasDone && target.type === "done" && task.recurrence;
+      toast(wasDone ? "Tarefa reaberta" : repeats ? "Concluída ✓ · 🔁 a próxima já foi criada" : "Tarefa concluída ✓", {
         undo: () => void actions.update(id, { status_id: previous }),
       });
     },

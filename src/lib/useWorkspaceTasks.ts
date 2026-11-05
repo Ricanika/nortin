@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { isDoneType, STRUCTURE_EVENT, toggleTarget } from "@/lib/tasks";
-import type { Priority, Status, StatusType } from "@/lib/types";
+import type { Priority, Recurrence, Status, StatusType } from "@/lib/types";
 import { useToast } from "@/components/Toast";
 
 export interface WsTask {
@@ -16,6 +16,7 @@ export interface WsTask {
   status_id: string | null;
   created_at: string;
   updated_at: string;
+  recurrence: Recurrence | null;
   assignees: string[];
   status: { name: string; color: string; type: StatusType } | null;
   list: { name: string; space_id: string; space: { name: string; color: string } | null } | null;
@@ -47,7 +48,7 @@ export function useWorkspaceTasks(workspaceId: string) {
       supabase
         .from("tasks")
         .select(
-          "id, title, priority, due_date, list_id, parent_task_id, status_id, created_at, updated_at, task_assignees(user_id), statuses(name, color, type), lists(name, space_id, archived_at, spaces(name, color, archived_at))",
+          "id, title, priority, due_date, list_id, parent_task_id, status_id, created_at, updated_at, recurrence, task_assignees(user_id), statuses(name, color, type), lists(name, space_id, archived_at, spaces(name, color, archived_at))",
         )
         .eq("workspace_id", workspaceId)
         .limit(5000),
@@ -98,7 +99,7 @@ export function useWorkspaceTasks(workspaceId: string) {
     load();
   };
 
-  async function update(ids: string[], patch: { due_date?: string | null; priority?: Priority | null }) {
+  async function update(ids: string[], patch: { due_date?: string | null; priority?: Priority | null; recurrence?: Recurrence | null }) {
     patchLocal(ids, (t) => ({ ...t, ...patch }));
     const { error } = await supabase.from("tasks").update(patch).in("id", ids);
     if (error) return fail(error.message);

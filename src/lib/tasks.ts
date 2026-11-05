@@ -1,11 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Priority, Status } from "./types";
+import type { Priority, Recurrence, Status } from "./types";
 
 export interface NewTask {
   listId: string;
   title: string;
   due?: string | null;
   priority?: Priority | null;
+  recurrence?: Recurrence | null;
   assignees?: string[];
   statusId?: string;
 }
@@ -19,6 +20,7 @@ export async function createTaskFull(supabase: SupabaseClient, t: NewTask) {
       title: t.title,
       due_date: t.due ?? null,
       priority: t.priority ?? null,
+      recurrence: t.recurrence ?? null,
       status_id: t.statusId ?? null,
       // Segundos desde 1970: fica no fim da coluna sem precisar ler as vizinhas.
       position: Math.round(Date.now() / 1000),

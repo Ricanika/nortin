@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { addDays, friendlyDate, nextWeekday, todayISO, ymd } from "@/lib/dates";
-import { memberName, type Member, type Priority, type Status } from "@/lib/types";
+import { memberName, type Member, type Priority, type Recurrence, type Status } from "@/lib/types";
 import { useWorkspaceTasks, wsDone, type WsTask } from "@/lib/useWorkspaceTasks";
 import { CompleteToggle, DuePicker, PriorityPicker, StatusPicker } from "./InlineEditors";
 import { AssigneePicker, Avatar } from "./TaskBits";
@@ -154,7 +154,7 @@ export default function Gestao() {
         return n;
       }),
     onToggle: (id: string) => void toggleDone([id]),
-    onUpdate: (id: string, patch: { due_date?: string | null; priority?: Priority | null }) => void update([id], patch),
+    onUpdate: (id: string, patch: { due_date?: string | null; priority?: Priority | null; recurrence?: Recurrence | null }) => void update([id], patch),
     onStatus: (id: string, sid: string) => void setStatus(id, sid),
     onAssign: (id: string, uid: string, on: boolean) => void assign([id], uid, on),
   };
@@ -350,7 +350,7 @@ interface RowProps {
   onSelect: (id: string) => void;
   onSelectMany: (ids: string[], on: boolean) => void;
   onToggle: (id: string) => void;
-  onUpdate: (id: string, patch: { due_date?: string | null; priority?: Priority | null }) => void;
+  onUpdate: (id: string, patch: { due_date?: string | null; priority?: Priority | null; recurrence?: Recurrence | null }) => void;
   onStatus: (id: string, statusId: string) => void;
   onAssign: (id: string, userId: string, on: boolean) => void;
 }
@@ -455,7 +455,13 @@ function TaskRow({
           <DuePicker value={null} onChange={(due_date) => onUpdate(t.id, { due_date })} />
         </span>
       ) : (
-        <DuePicker value={t.due_date} done={done} onChange={(due_date) => onUpdate(t.id, { due_date })} />
+        <DuePicker
+          value={t.due_date}
+          done={done}
+          onChange={(due_date) => onUpdate(t.id, { due_date })}
+          recurrence={t.recurrence}
+          onRecurrenceChange={(recurrence) => onUpdate(t.id, { recurrence })}
+        />
       )}
     </div>
   );

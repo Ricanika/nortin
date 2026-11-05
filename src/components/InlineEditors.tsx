@@ -1,7 +1,7 @@
 "use client";
 
 import { friendlyDate, shortcutDates, todayISO } from "@/lib/dates";
-import { PRIORITIES, type Priority, type Status } from "@/lib/types";
+import { PRIORITIES, RECURRENCES, type Priority, type Recurrence, type Status } from "@/lib/types";
 import Popover from "./Popover";
 
 const itemClass = "flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-slate-50";
@@ -48,26 +48,39 @@ export function CompleteToggle({
   );
 }
 
-/** Prazo com atalhos: Hoje, Amanhã, Próx. segunda, Em 1 semana. */
+/**
+ * Prazo com atalhos (Hoje, Amanhã, Próx. segunda, Em 1 semana) e, quando a tela
+ * passa `onRecurrenceChange`, a opção Repetir.
+ */
 export function DuePicker({
   value,
   onChange,
   done = false,
+  recurrence = null,
+  onRecurrenceChange,
 }: {
   value: string | null;
   onChange: (date: string | null) => void;
   done?: boolean;
+  recurrence?: Recurrence | null;
+  onRecurrenceChange?: (r: Recurrence | null) => void;
 }) {
   const late = !!value && !done && value < todayISO();
   const isToday = value === todayISO();
+  const rec = RECURRENCES.find((r) => r.value === recurrence);
   return (
     <Popover
-      label="Prazo"
-      width={220}
+      label={rec ? `Prazo (repete: ${rec.short})` : "Prazo"}
+      width={232}
       triggerClassName={`whitespace-nowrap rounded px-1.5 py-0.5 text-xs hover:bg-slate-100 ${
         late ? "font-medium text-red-600" : isToday ? "font-medium text-amber-600" : value ? "text-slate-600" : "text-slate-300"
       }`}
-      trigger={value ? friendlyDate(value) : "📅 Prazo"}
+      trigger={
+        <>
+          {rec && <span className="mr-0.5 text-violet-600">🔁</span>}
+          {value ? friendlyDate(value) : "📅 Prazo"}
+        </>
+      }
     >
       {(close) => (
         <>
@@ -100,11 +113,40 @@ export function DuePicker({
               aria-label="Escolher data"
             />
           </div>
+
+          {onRecurrenceChange && (
+            <div className="border-t px-3 py-2">
+              <label className="mb-1 block text-xs font-medium text-slate-500" htmlFor="due-recurrence">
+                🔁 Repetir
+              </label>
+              <select
+                id="due-recurrence"
+                value={recurrence ?? ""}
+                onChange={(e) => {
+                  const r = (e.target.value || null) as Recurrence | null;
+                  // Recorrência precisa de uma data de partida: sem prazo, começa hoje.
+                  if (r && !value) onChange(todayISO());
+                  onRecurrenceChange(r);
+                }}
+                className="w-full rounded border px-2 py-1 text-sm"
+              >
+                <option value="">Não repete</option>
+                {RECURRENCES.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+              {rec && <p className="mt-1 text-[11px] leading-snug text-slate-400">Ao concluir, a próxima é criada sozinha.</p>}
+            </div>
+          )}
+
           {value && (
             <button
-              className={`${itemClass} text-slate-500`}
+              className={`${itemClass} border-t text-slate-500`}
               onClick={() => {
                 onChange(null);
+                if (recurrence) onRecurrenceChange?.(null);
                 close();
               }}
             >

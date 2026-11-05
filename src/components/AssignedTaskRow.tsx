@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { rowDone, type AssignedRow } from "@/lib/useAssignedTasks";
-import type { Priority } from "@/lib/types";
+import type { Priority, Recurrence } from "@/lib/types";
 import { CompleteToggle, DuePicker, PriorityPicker } from "./InlineEditors";
 
 /** Linha de tarefa para as visões de pessoa (Meu dia, Minhas tarefas): concluir, prazo e prioridade sem abrir nada. */
@@ -15,7 +15,7 @@ export default function AssignedTaskRow({
   row: AssignedRow;
   href: string;
   onToggle: () => void;
-  onUpdate: (patch: { due_date?: string | null; priority?: Priority | null }) => void;
+  onUpdate: (patch: { due_date?: string | null; priority?: Priority | null; recurrence?: Recurrence | null }) => void;
 }) {
   const done = rowDone(row);
   return (
@@ -40,7 +40,13 @@ export default function AssignedTaskRow({
         </span>
       </Link>
       <PriorityPicker value={row.priority} onChange={(priority) => onUpdate({ priority })} />
-      <DuePicker value={row.due_date} done={done} onChange={(due_date) => onUpdate({ due_date })} />
+      <DuePicker
+        value={row.due_date}
+        done={done}
+        onChange={(due_date) => onUpdate({ due_date })}
+        recurrence={row.recurrence}
+        onRecurrenceChange={(recurrence) => onUpdate({ recurrence })}
+      />
     </div>
   );
 }

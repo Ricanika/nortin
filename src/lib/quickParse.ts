@@ -1,11 +1,12 @@
 import { addDays, nextWeekday, ymd } from "./dates";
-import type { Member, Priority } from "./types";
+import type { Member, Priority, Recurrence } from "./types";
 
 /**
  * Entende uma frase de criação rápida, digitada ou ditada:
  *   "Ligar comprador Assaí @bia amanhã !urgente"
  *   "Bia, ligar pro Assaí até sexta, é urgente"
  *   "Revisar tabela pra Ana dia 15 prioridade alta"
+ *   "Relatório de vendas toda sexta @ana"  (recorrente)
  * Tira da frase o que é responsável, prazo e prioridade; o resto vira o título.
  */
 export interface Parsed {
@@ -13,6 +14,7 @@ export interface Parsed {
   assignees: string[];
   due: string | null;
   priority: Priority | null;
+  recurrence: Recurrence | null;
 }
 
 // \b do JS não entende acentos: estas fronteiras usam letras Unicode.
@@ -58,6 +60,7 @@ export function parseQuick(input: string, members: Member[], base = new Date()):
   let text = ` ${input} `;
   let due: string | null = null;
   let priority: Priority | null = null;
+  let recurrence: Recurrence | null = null;
   const assignees: string[] = [];
 
   const take = (pattern: RegExp, fn: (m: RegExpExecArray) => boolean | void) => {
@@ -106,6 +109,24 @@ export function parseQuick(input: string, members: Member[], base = new Date()):
   const setDue = (d: Date) => {
     if (!due) due = ymd(d);
   };
+
+  // Recorrência (antes das datas: "toda segunda" não é só "segunda")
+  const setRec = (r: Recurrence) => {
+    if (!recurrence) recurrence = r;
+  };
+  take(re("‹(?:todos?\\s+os\\s+dias|tod[oa]\\s+dia|cada\\s+dia|diariamente)›"), () => setRec("daily"));
+  take(re("‹(?:(?:nos|em)\\s+)?dias\\s+[uú]teis›|‹de\\s+segunda\\s+a\\s+sexta›"), () => setRec("weekdays"));
+  take(re("‹(?:toda|cada)\\s+semana›|‹semanalmente›"), () => setRec("weekly"));
+  take(re("‹(?:tod[oa]s?|cada)\\s+(?:as?\\s+|os?\\s+)?(domingo|segunda|ter[cç]a|quarta|quinta|sexta|s[aá]bado)s?(?:-feiras?|\\s+feiras?)?›"), (m) => {
+    const w = normalize(m[1]);
+    const idx = WEEKDAYS.find(([r]) => r.test(w))?.[1];
+    if (idx === undefined) return false;
+    setRec("weekly");
+    // "toda segunda" numa segunda começa hoje
+    setDue(addDays(base, (idx - base.getDay() + 7) % 7));
+  });
+  take(re("‹(?:todo|cada)\\s+m[eê]s›|‹mensalmente›"), () => setRec("monthly"));
+  take(re("‹(?:todo|cada)\\s+ano›|‹anualmente›"), () => setRec("yearly"));
   const ate = "(?:at[eé]\\s+)?(?:(?:n?[oa]s?|para)\\s+)?";
   take(re(`‹${ate}depois\\s+de\\s+amanh[aã]›`), () => setDue(addDays(base, 2)));
   take(re(`‹${ate}amanh[aã]›`), () => setDue(addDays(base, 1)));
@@ -134,6 +155,9 @@ export function parseQuick(input: string, members: Member[], base = new Date()):
     setDue(d);
   });
 
+  // Recorrente sem data: começa hoje
+  if (recurrence && !due) due = ymd(base);
+
   const title = text
     .replace(/\s+/g, " ")
     .replace(/\s+([,.;!?])/g, "$1")
@@ -147,5 +171,6 @@ export function parseQuick(input: string, members: Member[], base = new Date()):
     assignees,
     due,
     priority,
+    recurrence,
   };
 }

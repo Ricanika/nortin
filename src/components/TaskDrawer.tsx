@@ -164,7 +164,13 @@ export default function TaskDrawer({
 
             <span className="text-slate-500">Prazo</span>
             <div>
-              <DuePicker value={task.due_date} done={status?.type === "done"} onChange={(due_date) => actions.update(task.id, { due_date })} />
+              <DuePicker
+                value={task.due_date}
+                done={status?.type === "done"}
+                onChange={(due_date) => actions.update(task.id, { due_date })}
+                recurrence={task.recurrence}
+                onRecurrenceChange={(recurrence) => actions.update(task.id, { recurrence })}
+              />
             </div>
           </div>
 

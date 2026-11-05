@@ -1,6 +1,15 @@
 export type Priority = "urgent" | "high" | "normal" | "low";
 export type StatusType = "open" | "active" | "done" | "closed";
 export type Role = "owner" | "admin" | "member" | "guest";
+export type Recurrence = "daily" | "weekdays" | "weekly" | "monthly" | "yearly";
+
+export const RECURRENCES: { value: Recurrence; label: string; short: string }[] = [
+  { value: "daily", label: "Todo dia", short: "diária" },
+  { value: "weekdays", label: "Dias úteis (seg a sex)", short: "dias úteis" },
+  { value: "weekly", label: "Toda semana", short: "semanal" },
+  { value: "monthly", label: "Todo mês", short: "mensal" },
+  { value: "yearly", label: "Todo ano", short: "anual" },
+];
 
 export interface Workspace {
   id: string;
@@ -49,6 +58,8 @@ export interface Task {
   position: number;
   created_at: string;
   updated_at: string;
+  /** Ao concluir, o banco cria a próxima com o prazo seguinte */
+  recurrence: Recurrence | null;
   /** user_ids dos responsáveis (vem de task_assignees) */
   assignees: string[];
 }

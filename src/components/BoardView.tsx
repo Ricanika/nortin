@@ -198,7 +198,8 @@ function Column({
         className="block w-full px-3 pb-3"
         onCreate={async (text) => {
           const p = parseQuick(text, members);
-          if (p.title) await actions.create(p.title, status.id, { due_date: p.due, priority: p.priority }, p.assignees);
+          if (p.title)
+            await actions.create(p.title, status.id, { due_date: p.due, priority: p.priority, recurrence: p.recurrence }, p.assignees);
         }}
       />
     </div>
@@ -254,7 +255,13 @@ function Card({
         <PriorityFlag priority={task.priority} />
         <span className="flex items-center gap-2">
           {actions ? (
-            <DuePicker value={task.due_date} done={done} onChange={(due_date) => actions.update(task.id, { due_date })} />
+            <DuePicker
+              value={task.due_date}
+              done={done}
+              onChange={(due_date) => actions.update(task.id, { due_date })}
+              recurrence={task.recurrence}
+              onRecurrenceChange={(recurrence) => actions.update(task.id, { recurrence })}
+            />
           ) : (
             <DueDate date={task.due_date} />
           )}

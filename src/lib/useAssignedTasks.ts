@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { isDoneType, STRUCTURE_EVENT, toggleTarget } from "@/lib/tasks";
-import type { Priority, Status, StatusType } from "@/lib/types";
+import type { Priority, Recurrence, Status, StatusType } from "@/lib/types";
 import { useToast } from "@/components/Toast";
 
 export interface AssignedRow {
@@ -15,6 +15,7 @@ export interface AssignedRow {
   parent_task_id: string | null;
   status_id: string | null;
   updated_at: string;
+  recurrence: Recurrence | null;
   statuses: { name: string; color: string; type: StatusType } | null;
   lists: {
     name: string;
@@ -41,7 +42,7 @@ export function useAssignedTasks(workspaceId: string, person: string) {
       supabase
         .from("tasks")
         .select(
-          "id, title, priority, due_date, list_id, parent_task_id, status_id, updated_at, task_assignees!inner(user_id), statuses(name, color, type), lists(name, archived_at, spaces(name, color, archived_at))",
+          "id, title, priority, due_date, list_id, parent_task_id, status_id, updated_at, recurrence, task_assignees!inner(user_id), statuses(name, color, type), lists(name, archived_at, spaces(name, color, archived_at))",
         )
         .eq("workspace_id", workspaceId)
         .eq("task_assignees.user_id", person),
@@ -75,7 +76,7 @@ export function useAssignedTasks(workspaceId: string, person: string) {
   const patchLocal = (id: string, patch: Partial<AssignedRow>) =>
     setRows((prev) => prev?.map((r) => (r.id === id ? { ...r, ...patch } : r)) ?? prev);
 
-  async function update(id: string, patch: { due_date?: string | null; priority?: Priority | null }) {
+  async function update(id: string, patch: { due_date?: string | null; priority?: Priority | null; recurrence?: Recurrence | null }) {
     patchLocal(id, patch);
     const { error } = await supabase.from("tasks").update(patch).eq("id", id);
     if (error) {
@@ -103,7 +104,8 @@ export function useAssignedTasks(workspaceId: string, person: string) {
     const previous = row.status_id;
     const wasDone = rowDone(row);
     await setStatus(row, target.id);
-    toast(wasDone ? "Tarefa reaberta" : "Tarefa concluída ✓", {
+    const repeats = !wasDone && target.type === "done" && row.recurrence;
+    toast(wasDone ? "Tarefa reaberta" : repeats ? "Concluída ✓ · 🔁 a próxima já foi criada" : "Tarefa concluída ✓", {
       undo: () => void setStatus({ ...row, status_id: target.id }, previous),
     });
   }
