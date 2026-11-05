@@ -35,6 +35,8 @@ export interface List {
   name: string;
   position: number;
   archived_at: string | null;
+  /** link da pasta no OneDrive/SharePoint/Drive */
+  folder_url: string | null;
 }
 
 export interface Status {
@@ -61,6 +63,7 @@ export interface Task {
   updated_at: string;
   /** Ao concluir, o banco cria a próxima com o prazo seguinte */
   recurrence: Recurrence | null;
+  folder_url: string | null;
   /** user_ids dos responsáveis (vem de task_assignees) */
   assignees: string[];
 }

@@ -79,6 +79,7 @@ banco (RLS e triggers), não só na tela.
       ao concluir, o banco cria a próxima com os mesmos responsáveis
 - [x] Painel da tarefa com chat (mensagens não podem ser editadas nem apagadas, travado no banco);
       prioridades só Urgente e Importante; sem descrição e sem subtarefas por enquanto
+- [x] Link da pasta (OneDrive/SharePoint/Drive) na lista e na tarefa; links clicáveis no chat
 - [ ] Folders na sidebar, convite por link
 - [ ] Fase 3: Custom Fields (`custom_fields` + `task_custom_values` jsonb)
 - [x] Calendário (por lista e em Minhas tarefas), com arrastar para mudar o prazo

@@ -9,11 +9,12 @@ import ListView from "./ListView";
 import BoardView from "./BoardView";
 import TaskDrawer from "./TaskDrawer";
 import CalendarView from "./CalendarView";
+import FolderLink from "./FolderLink";
 import { useToast } from "./Toast";
 import { notifyStructureChanged, STRUCTURE_EVENT, toggleTarget } from "@/lib/tasks";
 
 export type TaskPatch = Partial<
-  Pick<Task, "title" | "description" | "status_id" | "priority" | "due_date" | "position" | "recurrence">
+  Pick<Task, "title" | "description" | "status_id" | "priority" | "due_date" | "position" | "recurrence" | "folder_url">
 >;
 
 export interface TaskActions {
@@ -281,7 +282,24 @@ export default function ListScreen({ listId }: { listId: string }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="border-b px-6 pt-4">
-        <h1 className="text-lg font-semibold">{list?.name ?? "…"}</h1>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <h1 className="text-lg font-semibold">{list?.name ?? "…"}</h1>
+          {list && (
+            <FolderLink
+              subject="lista"
+              value={list.folder_url}
+              onSave={async (folder_url) => {
+                const before = list.folder_url;
+                setList({ ...list, folder_url });
+                const { error } = await supabase.from("lists").update({ folder_url }).eq("id", list.id);
+                if (error) {
+                  setList({ ...list, folder_url: before });
+                  setError(error.message);
+                } else toast(folder_url ? "Pasta vinculada à lista" : "Pasta removida da lista");
+              }}
+            />
+          )}
+        </div>
         <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
           <div className="flex gap-1 text-sm">
             {(["list", "board", "calendar"] as const).map((v) => (
@@ -383,6 +401,7 @@ export default function ListScreen({ listId }: { listId: string }) {
         <TaskDrawer
           key={openTask.id}
           task={openTask}
+          listFolder={list?.folder_url ?? null}
           statuses={sortedStatuses}
           actions={actions}
           onClose={() => setParam("t", null)}

@@ -8,16 +8,46 @@ import type { TaskActions } from "./ListScreen";
 import { AssigneePicker, Avatar } from "./TaskBits";
 import { DuePicker, PriorityPicker, StatusPicker } from "./InlineEditors";
 import { useWorkspace } from "./WorkspaceContext";
+import FolderLink, { folderService } from "./FolderLink";
 
 type Message = Omit<Comment, "profiles">;
 
+// Links nas mensagens viram clicáveis; os de pasta/arquivo ganham o nome do serviço
+const URL_RE = /(https?:\/\/[^\s<>"]+[^\s<>".,;:!?)\]])/g;
+
+function MessageBody({ text, mine }: { text: string; mine: boolean }) {
+  const parts = text.split(URL_RE);
+  return (
+    <p className="whitespace-pre-wrap break-words">
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`underline underline-offset-2 ${mine ? "text-white" : "text-sky-700"}`}
+          >
+            {["SharePoint", "OneDrive", "Google Drive", "Dropbox"].includes(folderService(part)) ? `📁 ${folderService(part)}: ` : ""}
+            {part.length > 60 ? `${part.slice(0, 57)}…` : part}
+          </a>
+        ) : (
+          part
+        ),
+      )}
+    </p>
+  );
+}
+
 export default function TaskDrawer({
   task,
+  listFolder,
   statuses,
   actions,
   onClose,
 }: {
   task: Task;
+  listFolder: string | null;
   statuses: Status[];
   actions: TaskActions;
   onClose: () => void;
@@ -152,6 +182,16 @@ export default function TaskDrawer({
                 onRecurrenceChange={(recurrence) => actions.update(task.id, { recurrence })}
               />
             </div>
+
+            <span className="text-slate-500">Pasta</span>
+            <div>
+              <FolderLink
+                subject="tarefa"
+                value={task.folder_url}
+                inherited={listFolder}
+                onSave={(folder_url) => actions.update(task.id, { folder_url })}
+              />
+            </div>
           </div>
         </div>
 
@@ -196,7 +236,7 @@ export default function TaskDrawer({
                       {!mine && !sameAuthor && (
                         <div className="mb-0.5 text-xs font-semibold text-violet-700">{memberName(author)}</div>
                       )}
-                      <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                      <MessageBody text={m.body} mine={mine} />
                       <div className={`mt-0.5 text-right text-[10px] ${mine ? "text-violet-200" : "text-slate-400"}`}>{time}</div>
                     </div>
                   </div>
