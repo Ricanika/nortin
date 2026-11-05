@@ -38,6 +38,8 @@ workspaces ─┬─ workspace_members ── profiles
 | Promover membro a administrador | ✅ | — | — |
 | Criar listas, tarefas e status | ✅ | ✅ | ✅ |
 | Marcar responsáveis | ✅ | ✅ | ✅ |
+| Arquivar e desarquivar listas e Spaces | ✅ | ✅ | ✅ |
+| Renomear listas | ✅ | ✅ | ✅ |
 
 O dono é quem criou o workspace e não pode ser removido nem trocado. Essas regras valem no
 banco (RLS e triggers), não só na tela.
@@ -72,6 +74,7 @@ banco (RLS e triggers), não só na tela.
       concluir com 1 clique, edição direto na linha, "Desfazer" no lugar de confirmações
 - [x] Gestão (dono e administradores): todas as tarefas com filtros, carga por membro, tarefas sem prazo
       e ações em massa (prazo, prioridade, responsável, concluir)
+- [x] Arquivar e desarquivar listas e Spaces (qualquer membro), renomear pelo menu ⋯
 - [ ] Folders na sidebar, convite por link
 - [ ] Fase 3: Custom Fields (`custom_fields` + `task_custom_values` jsonb)
 - [x] Calendário (por lista e em Minhas tarefas), com arrastar para mudar o prazo

@@ -14,6 +14,7 @@ export interface Space {
   name: string;
   color: string;
   position: number;
+  archived_at: string | null;
 }
 
 export interface List {
@@ -23,6 +24,7 @@ export interface List {
   folder_id: string | null;
   name: string;
   position: number;
+  archived_at: string | null;
 }
 
 export interface Status {

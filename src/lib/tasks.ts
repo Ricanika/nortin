@@ -44,3 +44,7 @@ export function toggleTarget(listStatuses: Status[], currentStatusId: string | n
   if (isDoneType(current?.type)) return sorted.find((s) => !isDoneType(s.type)) ?? null;
   return sorted.find((s) => s.type === "done") ?? sorted.find((s) => isDoneType(s.type)) ?? null;
 }
+
+/** Avisa as telas abertas que listas ou Spaces mudaram (ex.: arquivados), para recarregarem. */
+export const STRUCTURE_EVENT = "hyak:structure-changed";
+export const notifyStructureChanged = () => window.dispatchEvent(new Event(STRUCTURE_EVENT));

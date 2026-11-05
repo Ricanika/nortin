@@ -10,7 +10,7 @@ import BoardView from "./BoardView";
 import TaskDrawer from "./TaskDrawer";
 import CalendarView from "./CalendarView";
 import { useToast } from "./Toast";
-import { toggleTarget } from "@/lib/tasks";
+import { notifyStructureChanged, STRUCTURE_EVENT, toggleTarget } from "@/lib/tasks";
 
 export type TaskPatch = Partial<
   Pick<Task, "title" | "description" | "status_id" | "priority" | "due_date" | "position">
@@ -42,6 +42,7 @@ export default function ListScreen({ listId }: { listId: string }) {
 
   const supabase = useMemo(() => createClient(), []);
   const [list, setList] = useState<List | null>(null);
+  const [spaceArchived, setSpaceArchived] = useState(false);
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [query, setQuery] = useState("");
@@ -56,6 +57,30 @@ export default function ListScreen({ listId }: { listId: string }) {
     },
     [pathname, router, searchParams],
   );
+
+  // Situação de arquivo da lista e do Space (atualiza se alguém arquivar pela barra lateral)
+  const loadArchive = useCallback(async () => {
+    const { data } = await supabase.from("lists").select("archived_at, spaces(archived_at)").eq("id", listId).single();
+    if (!data) return;
+    setList((prev) => (prev ? { ...prev, archived_at: data.archived_at } : prev));
+    setSpaceArchived(Boolean((data.spaces as unknown as { archived_at: string | null } | null)?.archived_at));
+  }, [supabase, listId]);
+
+  useEffect(() => {
+    loadArchive();
+    window.addEventListener(STRUCTURE_EVENT, loadArchive);
+    return () => window.removeEventListener(STRUCTURE_EVENT, loadArchive);
+  }, [loadArchive]);
+
+  async function unarchive() {
+    if (!list) return;
+    const { error } = spaceArchived
+      ? await supabase.rpc("set_space_archived", { p_space: list.space_id, p_archived: false })
+      : await supabase.from("lists").update({ archived_at: null }).eq("id", list.id);
+    if (error) return setError(error.message);
+    toast(spaceArchived ? "Space de volta" : "Lista de volta");
+    notifyStructureChanged();
+  }
 
   // Carga inicial
   useEffect(() => {
@@ -298,6 +323,18 @@ export default function ListScreen({ listId }: { listId: string }) {
           </div>
         </div>
       </header>
+
+      {(list?.archived_at || spaceArchived) && (
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-amber-50 px-6 py-2 text-sm text-amber-800">
+          <span>
+            📦 {spaceArchived ? "O Space desta lista está arquivado" : "Esta lista está arquivada"}. As tarefas não aparecem em Meu dia,
+            Minhas tarefas nem Gestão.
+          </span>
+          <button onClick={unarchive} className="rounded-md bg-amber-600 px-3 py-1 font-medium text-white hover:bg-amber-700">
+            Desarquivar
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="flex items-center justify-between bg-red-50 px-6 py-2 text-sm text-red-700">

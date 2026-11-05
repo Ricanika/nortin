@@ -87,13 +87,16 @@ export function QuickAddProvider({ children }: { children: React.ReactNode }) {
   const loadLists = useCallback(async () => {
     const { data } = await supabase
       .from("lists")
-      .select("id, name, position, spaces(name, color, position)")
-      .eq("workspace_id", workspace.id);
+      .select("id, name, position, archived_at, spaces(name, color, position, archived_at)")
+      .eq("workspace_id", workspace.id)
+      .is("archived_at", null);
     const opts = (data ?? [])
       .map((l) => {
-        const sp = l.spaces as unknown as { name: string; color: string; position: number } | null;
+        const sp = l.spaces as unknown as { name: string; color: string; position: number; archived_at: string | null } | null;
+        if (sp?.archived_at) return null;
         return { id: l.id, name: l.name, spaceName: sp?.name ?? "", spaceColor: sp?.color ?? "#94a3b8", sort: [sp?.position ?? 0, l.position] };
       })
+      .filter((o): o is NonNullable<typeof o> => o !== null)
       .sort((a, b) => a.sort[0] - b.sort[0] || a.sort[1] - b.sort[1])
       .map(({ sort: _s, ...o }) => o);
     setLists(opts);
@@ -123,7 +126,8 @@ export function QuickAddProvider({ children }: { children: React.ReactNode }) {
       setOpen(true);
       setError(null);
       setMode("type");
-      const opts2 = lists.length ? lists : await loadLists();
+      // Recarrega sempre: listas podem ter sido criadas ou arquivadas desde a última vez.
+      const opts2 = await loadLists();
       const fromUrl = pathname.match(/\/l\/([^/?]+)/)?.[1];
       let remembered: string | null = null;
       try {

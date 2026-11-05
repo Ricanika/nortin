@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { isDoneType, toggleTarget } from "@/lib/tasks";
+import { isDoneType, STRUCTURE_EVENT, toggleTarget } from "@/lib/tasks";
 import type { Priority, Status, StatusType } from "@/lib/types";
 import { useToast } from "@/components/Toast";
 
@@ -16,8 +16,15 @@ export interface AssignedRow {
   status_id: string | null;
   updated_at: string;
   statuses: { name: string; color: string; type: StatusType } | null;
-  lists: { name: string; spaces: { name: string; color: string } | null } | null;
+  lists: {
+    name: string;
+    archived_at: string | null;
+    spaces: { name: string; color: string; archived_at: string | null } | null;
+  } | null;
 }
+
+/** Lista ou Space arquivado: a tarefa sai das visões. */
+const inArchive = (r: AssignedRow) => Boolean(r.lists?.archived_at || r.lists?.spaces?.archived_at);
 
 export const rowDone = (r: AssignedRow) => isDoneType(r.statuses?.type);
 
@@ -34,14 +41,14 @@ export function useAssignedTasks(workspaceId: string, person: string) {
       supabase
         .from("tasks")
         .select(
-          "id, title, priority, due_date, list_id, parent_task_id, status_id, updated_at, task_assignees!inner(user_id), statuses(name, color, type), lists(name, spaces(name, color))",
+          "id, title, priority, due_date, list_id, parent_task_id, status_id, updated_at, task_assignees!inner(user_id), statuses(name, color, type), lists(name, archived_at, spaces(name, color, archived_at))",
         )
         .eq("workspace_id", workspaceId)
         .eq("task_assignees.user_id", person),
       supabase.from("statuses").select("*").eq("workspace_id", workspaceId),
     ]);
     if (t.error) return setError(t.error.message);
-    setRows((t.data ?? []) as unknown as AssignedRow[]);
+    setRows(((t.data ?? []) as unknown as AssignedRow[]).filter((r) => !inArchive(r)));
     setStatuses((s.data ?? []) as Status[]);
   }, [supabase, workspaceId, person]);
 
@@ -57,7 +64,9 @@ export function useAssignedTasks(workspaceId: string, person: string) {
       .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `workspace_id=eq.${workspaceId}` }, reload)
       .on("postgres_changes", { event: "*", schema: "public", table: "task_assignees" }, reload)
       .subscribe();
+    window.addEventListener(STRUCTURE_EVENT, reload);
     return () => {
+      window.removeEventListener(STRUCTURE_EVENT, reload);
       clearTimeout(timer);
       supabase.removeChannel(channel);
     };

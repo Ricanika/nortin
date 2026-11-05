@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { isDoneType, toggleTarget } from "@/lib/tasks";
+import { isDoneType, STRUCTURE_EVENT, toggleTarget } from "@/lib/tasks";
 import type { Priority, Status, StatusType } from "@/lib/types";
 import { useToast } from "@/components/Toast";
 
@@ -26,7 +26,12 @@ export const wsDone = (t: WsTask) => isDoneType(t.status?.type);
 type Row = Omit<WsTask, "assignees" | "status" | "list"> & {
   task_assignees: { user_id: string }[];
   statuses: WsTask["status"];
-  lists: { name: string; space_id: string; spaces: { name: string; color: string } | null } | null;
+  lists: {
+    name: string;
+    space_id: string;
+    archived_at: string | null;
+    spaces: { name: string; color: string; archived_at: string | null } | null;
+  } | null;
 };
 
 /** Todas as tarefas do workspace, com tempo real e ações em uma ou várias tarefas. */
@@ -42,7 +47,7 @@ export function useWorkspaceTasks(workspaceId: string) {
       supabase
         .from("tasks")
         .select(
-          "id, title, priority, due_date, list_id, parent_task_id, status_id, created_at, updated_at, task_assignees(user_id), statuses(name, color, type), lists(name, space_id, spaces(name, color))",
+          "id, title, priority, due_date, list_id, parent_task_id, status_id, created_at, updated_at, task_assignees(user_id), statuses(name, color, type), lists(name, space_id, archived_at, spaces(name, color, archived_at))",
         )
         .eq("workspace_id", workspaceId)
         .limit(5000),
@@ -50,11 +55,16 @@ export function useWorkspaceTasks(workspaceId: string) {
     ]);
     if (t.error) return setError(t.error.message);
     setTasks(
-      ((t.data ?? []) as unknown as Row[]).map(({ task_assignees, statuses: st, lists, ...rest }) => ({
+      ((t.data ?? []) as unknown as Row[])
+        // Lista ou Space arquivado: fora da gestão até desarquivar
+        .filter((r) => !r.lists?.archived_at && !r.lists?.spaces?.archived_at)
+        .map(({ task_assignees, statuses: st, lists, ...rest }) => ({
         ...rest,
         assignees: (task_assignees ?? []).map((a) => a.user_id),
         status: st,
-        list: lists ? { name: lists.name, space_id: lists.space_id, space: lists.spaces } : null,
+        list: lists
+          ? { name: lists.name, space_id: lists.space_id, space: lists.spaces && { name: lists.spaces.name, color: lists.spaces.color } }
+          : null,
       })),
     );
     setStatuses((s.data ?? []) as Status[]);
@@ -72,7 +82,9 @@ export function useWorkspaceTasks(workspaceId: string) {
       .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `workspace_id=eq.${workspaceId}` }, reload)
       .on("postgres_changes", { event: "*", schema: "public", table: "task_assignees" }, reload)
       .subscribe();
+    window.addEventListener(STRUCTURE_EVENT, reload);
     return () => {
+      window.removeEventListener(STRUCTURE_EVENT, reload);
       clearTimeout(timer);
       supabase.removeChannel(channel);
     };
