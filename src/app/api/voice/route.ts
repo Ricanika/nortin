@@ -14,7 +14,7 @@ interface VoiceTask {
   title: string;
   assignee_ids: string[];
   due_date: string | null;
-  priority: "urgent" | "high" | "normal" | "low" | null;
+  priority: "urgent" | "high" | null;
   recurrence: "daily" | "weekdays" | "weekly" | "monthly" | "yearly" | null;
   list_id: string | null;
 }
@@ -61,7 +61,7 @@ Regras:
 - title: curto e no imperativo, sem o nome do responsável, sem a data e sem a prioridade.
 - assignee_ids: ids das pessoas citadas como responsáveis ("Bia, faz...", "pra Ana", "o Rafael vai..."). Vazio se ninguém.
 - due_date: AAAA-MM-DD a partir de expressões como "amanhã", "sexta", "dia 15", "semana que vem" (= próxima segunda). null se não houver prazo.
-- priority: "urgent" para urgente/pra ontem/prioridade máxima, "high" para importante/prioridade alta, "low" para sem pressa/quando der, senão null.
+- priority: "urgent" para urgente/pra ontem/prioridade máxima, "high" para importante/prioridade alta, senão null.
 - recurrence: "daily" (todo dia), "weekdays" (dias úteis), "weekly" (toda semana, toda segunda...), "monthly" (todo mês), "yearly" (todo ano); null se não repete. Se repete e não há data, due_date é hoje; "toda sexta" leva due_date para a próxima sexta.
 - list_id: só se o áudio citar claramente uma lista; senão null.`;
 
@@ -89,7 +89,7 @@ Regras:
                 title: { type: "STRING" },
                 assignee_ids: { type: "ARRAY", items: { type: "STRING" } },
                 due_date: { type: "STRING", nullable: true },
-                priority: { type: "STRING", enum: ["urgent", "high", "normal", "low"], nullable: true },
+                priority: { type: "STRING", enum: ["urgent", "high"], nullable: true },
                 recurrence: { type: "STRING", enum: ["daily", "weekdays", "weekly", "monthly", "yearly"], nullable: true },
                 list_id: { type: "STRING", nullable: true },
               },
@@ -129,7 +129,7 @@ Regras:
       title: t.title.trim().slice(0, 300),
       assignees: (t.assignee_ids ?? []).filter((id) => memberIds.has(id)),
       due: t.due_date && /^\d{4}-\d{2}-\d{2}$/.test(t.due_date) ? t.due_date : null,
-      priority: ["urgent", "high", "normal", "low"].includes(t.priority ?? "") ? t.priority : null,
+      priority: ["urgent", "high"].includes(t.priority ?? "") ? t.priority : null,
       recurrence: ["daily", "weekdays", "weekly", "monthly", "yearly"].includes(t.recurrence ?? "") ? t.recurrence : null,
       listId: t.list_id && listIds.has(t.list_id) ? t.list_id : null,
     }));

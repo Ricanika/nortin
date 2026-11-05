@@ -77,6 +77,8 @@ banco (RLS e triggers), não só na tela.
 - [x] Arquivar e desarquivar listas e Spaces (qualquer membro), renomear pelo menu ⋯
 - [x] Etapa "Cancelado" em todas as listas; tarefas recorrentes (todo dia, dias úteis, semanal, mensal, anual):
       ao concluir, o banco cria a próxima com os mesmos responsáveis
+- [x] Painel da tarefa com chat (mensagens não podem ser editadas nem apagadas, travado no banco);
+      prioridades só Urgente e Importante; sem descrição e sem subtarefas por enquanto
 - [ ] Folders na sidebar, convite por link
 - [ ] Fase 3: Custom Fields (`custom_fields` + `task_custom_values` jsonb)
 - [x] Calendário (por lista e em Minhas tarefas), com arrastar para mudar o prazo

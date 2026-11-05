@@ -1,4 +1,5 @@
-export type Priority = "urgent" | "high" | "normal" | "low";
+/** urgent = Urgente, high = Importante (o banco só aceita essas duas) */
+export type Priority = "urgent" | "high";
 export type StatusType = "open" | "active" | "done" | "closed";
 export type Role = "owner" | "admin" | "member" | "guest";
 export type Recurrence = "daily" | "weekdays" | "weekly" | "monthly" | "yearly";
@@ -93,9 +94,7 @@ export interface Comment {
 
 export const PRIORITIES: { value: Priority; label: string; color: string }[] = [
   { value: "urgent", label: "Urgente", color: "#ef4444" },
-  { value: "high", label: "Alta", color: "#f59e0b" },
-  { value: "normal", label: "Normal", color: "#3b82f6" },
-  { value: "low", label: "Baixa", color: "#94a3b8" },
+  { value: "high", label: "Importante", color: "#f59e0b" },
 ];
 
 /** Posição entre dois vizinhos (ordenação fracionária). */

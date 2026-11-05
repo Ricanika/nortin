@@ -5,7 +5,7 @@ import type { Member, Priority, Recurrence } from "./types";
  * Entende uma frase de criação rápida, digitada ou ditada:
  *   "Ligar comprador Assaí @bia amanhã !urgente"
  *   "Bia, ligar pro Assaí até sexta, é urgente"
- *   "Revisar tabela pra Ana dia 15 prioridade alta"
+ *   "Revisar tabela pra Ana dia 15, é importante"
  *   "Relatório de vendas toda sexta @ana"  (recorrente)
  * Tira da frase o que é responsável, prazo e prioridade; o resto vira o título.
  */
@@ -34,11 +34,8 @@ const WEEKDAYS: [RegExp, number][] = [
 
 const PRIORITY_WORDS: Record<string, Priority> = {
   urgente: "urgent",
+  importante: "high",
   alta: "high",
-  media: "normal",
-  média: "normal",
-  normal: "normal",
-  baixa: "low",
 };
 
 export function normalize(s: string) {
@@ -83,17 +80,25 @@ export function parseQuick(input: string, members: Member[], base = new Date()):
   };
 
   // Prioridade
-  take(re("(?:^|\\s)!(urgente|alta|m[eé]dia|normal|baixa)›"), (m) => {
+  take(re("(?:^|\\s)!(urgente|importante|alta)›"), (m) => {
     priority = PRIORITY_WORDS[normalize(m[1])] ?? null;
   });
   if (!priority) {
-    take(re(",?\\s*prioridade\\s+(urgente|alta|m[eé]dia|normal|baixa)›"), (m) => {
+    take(re(",?\\s*prioridade\\s+(urgente|importante|alta)›"), (m) => {
       priority = PRIORITY_WORDS[normalize(m[1])] ?? null;
     });
   }
   if (!priority) {
     take(re(",?\\s*(?:[eé]\\s+)?(?:muito\\s+)?‹urgente›"), () => {
       priority = "urgent";
+    });
+  }
+  // Prioridades que não existem mais (!baixa, !normal, !média): só somem do título
+  take(re("(?:^|\\s)!(?:baixa|normal|m[eé]dia)›"), () => {});
+  // "importante" solto pode ser parte do título; só vale como ", é importante"
+  if (!priority) {
+    take(re(",?\\s*[eé]\\s+(?:muito\\s+)?‹importante›"), () => {
+      priority = "high";
     });
   }
 

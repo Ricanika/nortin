@@ -12,7 +12,7 @@ import { useWorkspace } from "./WorkspaceContext";
 
 type GroupBy = "due" | "list";
 
-const PRIORITY_ORDER: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
+const PRIORITY_ORDER: Record<string, number> = { urgent: 0, high: 1 };
 const DUE_ORDER = ["Atrasadas", "Hoje", "Próximos 7 dias", "Mais adiante", "Sem prazo", "Concluídas"];
 
 function isoDate(offsetDays = 0) {

@@ -20,7 +20,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "semprazo", label: "Sem prazo" },
 ];
 
-const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
+const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1 };
 const NOBODY = "__nobody__";
 
 // Faixas de prazo usadas nas barras de carga por membro
@@ -235,9 +235,7 @@ export default function Gestao() {
             <select value={priority} onChange={(e) => setPriority(e.target.value)} className="rounded-md border px-2 py-1.5" aria-label="Prioridade">
               <option value="">Qualquer prioridade</option>
               <option value="urgent">Urgente</option>
-              <option value="high">Alta</option>
-              <option value="normal">Normal</option>
-              <option value="low">Baixa</option>
+              <option value="high">Importante</option>
               <option value="none">Sem prioridade</option>
             </select>
             {tab === "todas" && (
