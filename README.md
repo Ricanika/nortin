@@ -70,6 +70,8 @@ banco (RLS e triggers), não só na tela.
 - [x] Fase 2: responsáveis, membros por e-mail, "Minhas tarefas", só o dono cria Spaces
 - [x] UX: "Meu dia", criação rápida (botão, tecla N, frase com @nome/amanhã/!urgente), criar por áudio,
       concluir com 1 clique, edição direto na linha, "Desfazer" no lugar de confirmações
+- [x] Gestão (dono e administradores): todas as tarefas com filtros, carga por membro, tarefas sem prazo
+      e ações em massa (prazo, prioridade, responsável, concluir)
 - [ ] Folders na sidebar, convite por link
 - [ ] Fase 3: Custom Fields (`custom_fields` + `task_custom_values` jsonb)
 - [x] Calendário (por lista e em Minhas tarefas), com arrastar para mudar o prazo

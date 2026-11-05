@@ -111,6 +111,7 @@ export default function Sidebar({
         {[
           { href: `/w/${workspace.id}`, label: "Meu dia", icon: "☀️", show: true },
           { href: `/w/${workspace.id}/me`, label: "Minhas tarefas", icon: "◎", show: true },
+          { href: `/w/${workspace.id}/gestao`, label: "Gestão", icon: "📊", show: isAdmin },
           { href: `/w/${workspace.id}/members`, label: "Membros", icon: "👥", show: isAdmin },
         ]
           .filter((item) => item.show)
