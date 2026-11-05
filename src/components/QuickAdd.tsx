@@ -341,7 +341,7 @@ export function QuickAddProvider({ children }: { children: React.ReactNode }) {
       {/* Botões fixos: microfone e + Tarefa */}
       {!open && (
         <div
-          className="fixed z-40 flex items-center gap-2"
+          className="quick-fab fixed z-40 flex items-center gap-2"
           style={{
             right: "max(1.25rem, env(safe-area-inset-right))",
             bottom: "max(1.25rem, env(safe-area-inset-bottom))",

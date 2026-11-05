@@ -5,3 +5,8 @@
 body {
   @apply bg-white text-slate-800 antialiased;
 }
+
+/* Tarefa aberta: esconde os botões flutuantes para não cobrir o envio do chat */
+body[data-drawer-open] .quick-fab {
+  display: none;
+}

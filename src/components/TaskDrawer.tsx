@@ -55,6 +55,14 @@ export default function TaskDrawer({
     bottomRef.current?.scrollIntoView({ block: "end" });
   }, [messages?.length]);
 
+  // Com a tarefa aberta, os botões flutuantes (+ Tarefa / 🎤) saem da frente do chat
+  useEffect(() => {
+    document.body.dataset.drawerOpen = "true";
+    return () => {
+      delete document.body.dataset.drawerOpen;
+    };
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
