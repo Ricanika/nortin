@@ -12,11 +12,12 @@ import CalendarView from "./CalendarView";
 import FolderLink from "./FolderLink";
 import { CampaignSummary } from "./CampaignResults";
 import { toResult, type CampaignResult } from "@/lib/campaign";
+import type { SocialChannel } from "@/lib/social";
 import { useToast } from "./Toast";
 import { notifyStructureChanged, STRUCTURE_EVENT, toggleTarget } from "@/lib/tasks";
 
 export type TaskPatch = Partial<
-  Pick<Task, "title" | "description" | "status_id" | "priority" | "due_date" | "position" | "recurrence" | "folder_url">
+  Pick<Task, "title" | "description" | "status_id" | "priority" | "due_date" | "position" | "recurrence" | "folder_url" | "media" | "post_type">
 >;
 
 export interface TaskActions {
@@ -48,6 +49,27 @@ export default function ListScreen({ listId }: { listId: string }) {
   const [spaceArchived, setSpaceArchived] = useState(false);
   const [results, setResults] = useState<CampaignResult[]>([]);
   const isCampaign = list?.kind === "campaign";
+  const isContent = list?.kind === "content";
+  const [channels, setChannels] = useState<SocialChannel[]>([]);
+
+  // Lista de conteúdo: status, link e métricas de cada rede dos posts, em tempo real
+  useEffect(() => {
+    if (!isContent) return;
+    const load = () =>
+      supabase
+        .from("social_channels")
+        .select("*, tasks!inner(list_id)")
+        .eq("tasks.list_id", listId)
+        .then(({ data }) => setChannels((data ?? []) as SocialChannel[]));
+    load();
+    const channel = supabase
+      .channel(`social:${listId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "social_channels", filter: `workspace_id=eq.${workspace.id}` }, () => load())
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isContent, listId, supabase, workspace.id]);
 
   const saveResult = useCallback(
     (r: CampaignResult) =>
@@ -408,6 +430,7 @@ export default function ListScreen({ listId }: { listId: string }) {
             tasks={visibleTasks}
             actions={actions}
             campaign={isCampaign ? { results, onSaved: saveResult } : undefined}
+            social={isContent ? channels : undefined}
           />
         ) : view === "calendar" ? (
           <CalendarView
@@ -447,6 +470,7 @@ export default function ListScreen({ listId }: { listId: string }) {
           task={openTask}
           listFolder={list?.folder_url ?? null}
           campaign={isCampaign ? { results: results.filter((r) => r.task_id === openTask.id), onSaved: saveResult } : undefined}
+          social={isContent ? channels.filter((c) => c.task_id === openTask.id) : undefined}
           statuses={sortedStatuses}
           actions={actions}
           onClose={() => setParam("t", null)}

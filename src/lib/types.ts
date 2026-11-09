@@ -37,8 +37,8 @@ export interface List {
   archived_at: string | null;
   /** link da pasta no OneDrive/SharePoint/Drive */
   folder_url: string | null;
-  /** "campaign" mostra os resultados de Google/Meta por tarefa */
-  kind: "tasks" | "campaign";
+  /** "campaign": resultados Google/Meta; "content": posts publicados pelo GHL */
+  kind: "tasks" | "campaign" | "content";
 }
 
 export interface Status {
@@ -66,6 +66,10 @@ export interface Task {
   /** Ao concluir, o banco cria a próxima com o prazo seguinte */
   recurrence: Recurrence | null;
   folder_url: string | null;
+  /** Lista de conteúdo: mídia do post, tipo e horário de publicação no GHL */
+  media: { url: string; type: string; name?: string }[];
+  post_type: "post" | "reel" | "story";
+  publish_at: string | null;
   /** user_ids dos responsáveis (vem de task_assignees) */
   assignees: string[];
 }

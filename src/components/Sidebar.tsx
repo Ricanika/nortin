@@ -162,12 +162,22 @@ export default function Sidebar({
   // Lista de campanha ganha as colunas de resultado (Google/Meta); voltar não apaga os números
   async function setListKind(list: List, kind: List["kind"]) {
     setLists((prev) => prev.map((l) => (l.id === list.id ? { ...l, kind } : l)));
-    const { error } = await createClient().from("lists").update({ kind }).eq("id", list.id);
+    // Conteúdo passa pela função do banco: lista vazia ganha as etapas de produção de post
+    const { error } =
+      kind === "content"
+        ? await createClient().rpc("make_content_list", { p_list: list.id })
+        : await createClient().from("lists").update({ kind }).eq("id", list.id);
     if (error) {
       setLists((prev) => prev.map((l) => (l.id === list.id ? list : l)));
       return toast(`Não deu para mudar a lista: ${error.message}`);
     }
-    toast(kind === "campaign" ? `"${list.name}" agora é lista de campanha 📈` : `"${list.name}" voltou a ser lista comum`);
+    toast(
+      kind === "campaign"
+        ? `"${list.name}" agora é lista de campanha 📈`
+        : kind === "content"
+          ? `"${list.name}" agora é lista de conteúdo 📱`
+          : `"${list.name}" voltou a ser lista comum`,
+    );
     notifyStructureChanged();
   }
 
@@ -335,9 +345,12 @@ export default function Sidebar({
                         }`}
                       >
                         <Link href={href} className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1">
-                          {list.kind === "campaign" ? (
-                            <span className="w-3.5 shrink-0 text-center text-xs" title="Lista de campanha">
-                              📈
+                          {list.kind !== "tasks" ? (
+                            <span
+                              className="w-3.5 shrink-0 text-center text-xs"
+                              title={list.kind === "campaign" ? "Lista de campanha" : "Lista de conteúdo"}
+                            >
+                              {list.kind === "campaign" ? "📈" : "📱"}
                             </span>
                           ) : (
                           <svg
@@ -370,15 +383,26 @@ export default function Sidebar({
                               <button className={menuItem} onClick={() => startRename("list", list.id, list.name, close)}>
                                 ✏️ Renomear
                               </button>
-                              <button
-                                className={menuItem}
-                                onClick={() => {
-                                  close();
-                                  void setListKind(list, list.kind === "campaign" ? "tasks" : "campaign");
-                                }}
-                              >
-                                {list.kind === "campaign" ? "☰ Voltar a lista comum" : "📈 Tornar lista de campanha"}
-                              </button>
+                              {(
+                                [
+                                  ["content", "📱 Tornar lista de conteúdo"],
+                                  ["campaign", "📈 Tornar lista de campanha"],
+                                  ["tasks", "☰ Voltar a lista comum"],
+                                ] as const
+                              )
+                                .filter(([kind]) => kind !== list.kind)
+                                .map(([kind, label]) => (
+                                  <button
+                                    key={kind}
+                                    className={menuItem}
+                                    onClick={() => {
+                                      close();
+                                      void setListKind(list, kind);
+                                    }}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
                               <button
                                 className={menuItem}
                                 onClick={() => {

@@ -57,9 +57,14 @@ banco (RLS e triggers), não só na tela.
 4. Opcional, para criar tarefas por áudio com IA (várias tarefas num áudio só): crie uma chave grátis em
    https://aistudio.google.com/apikey e configure `GEMINI_API_KEY` (no `.env.local` e na Vercel).
    Sem ela, o microfone usa o ditado do navegador, uma tarefa por vez.
-5. Opcional para desenvolvimento: em Authentication → Providers → Email, desligue
+5. Opcional, para publicar nas redes pelo GoHighLevel (listas de conteúdo):
+   - uma Private Integration por subconta do GHL, em variáveis `GHL_TOKEN_<MARCA>` (o nome vai em `spaces.ghl_token_env`,
+     junto com `ghl_location_id` e `ghl_user_id`);
+   - `SUPABASE_SERVICE_ROLE_KEY` e `CRON_SECRET`, usados pelo robô diário de métricas (`vercel.json`).
+   Chaves só nas variáveis de ambiente, nunca no código.
+6. Opcional para desenvolvimento: em Authentication → Providers → Email, desligue
    "Confirm email" para entrar logo após o cadastro.
-6. Suba o app:
+7. Suba o app:
    ```bash
    npm install
    npm run dev
@@ -82,6 +87,8 @@ banco (RLS e triggers), não só na tela.
 - [x] Link da pasta (OneDrive/SharePoint/Drive) na lista e na tarefa; links clicáveis no chat
 - [x] Listas de campanha: resultados por tarefa separados em Google e Meta (impressões, cliques, CPC calculado,
       valor gasto), colunas na lista, resumo no topo e quadro no painel da tarefa
+- [x] Listas de conteúdo: post com texto, imagem/vídeo, tipo e data; publica ou agenda pelo GHL (Social Planner)
+      em Instagram, Facebook, TikTok, LinkedIn e YouTube; link e métricas por rede, atualizadas por robô diário
 - [ ] Importar resultados automaticamente do Google Ads e do Meta Ads
 - [ ] Folders na sidebar, convite por link
 - [ ] Fase 3: Custom Fields (`custom_fields` + `task_custom_values` jsonb)

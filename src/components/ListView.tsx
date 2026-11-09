@@ -9,26 +9,32 @@ import { AssigneePicker, NewTaskInput } from "./TaskBits";
 import { useWorkspace } from "./WorkspaceContext";
 import { CampaignCells } from "./CampaignResults";
 import type { CampaignResult } from "@/lib/campaign";
+import type { SocialChannel } from "@/lib/social";
+import { NetworkBadge } from "./SocialPost";
 
 const COLS = "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_32px] min-w-[700px]";
 // Lista de campanha: + Plataformas, Impressões, Cliques, CPC, Gasto (larguras iguais às do CampaignCells)
 const COLS_CAMPAIGN =
   "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_52px_84px_72px_78px_96px_32px] min-w-[1130px]";
+// Lista de conteúdo: + Redes (status de cada canal e curtidas)
+const COLS_CONTENT = "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_190px_32px] min-w-[900px]";
 
 export default function ListView({
   statuses,
   tasks,
   actions,
   campaign,
+  social,
 }: {
   statuses: Status[];
   tasks: Task[];
   actions: TaskActions;
   campaign?: { results: CampaignResult[]; onSaved: (r: CampaignResult) => void };
+  social?: SocialChannel[];
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const { members } = useWorkspace();
-  const cols = campaign ? COLS_CAMPAIGN : COLS;
+  const cols = campaign ? COLS_CAMPAIGN : social ? COLS_CONTENT : COLS;
 
   return (
     <div className="space-y-6 p-4 pb-28 sm:p-6">
@@ -56,6 +62,7 @@ export default function ListView({
                   <span>Status</span>
                   <span>Prioridade</span>
                   <span>Prazo</span>
+                  {social && <span>Redes</span>}
                   {campaign && (
                     <>
                       <span className="pl-1">Mídia</span>
@@ -101,6 +108,7 @@ export default function ListView({
                       recurrence={task.recurrence}
                       onRecurrenceChange={(recurrence) => actions.update(task.id, { recurrence })}
                     />
+                    {social && <SocialCell channels={social.filter((c) => c.task_id === task.id)} onOpen={() => actions.open(task.id)} />}
                     {campaign && (
                       <CampaignCells
                         taskId={task.id}
@@ -133,5 +141,30 @@ export default function ListView({
         );
       })}
     </div>
+  );
+}
+
+/** Canais do post: cheio = publicado, contorno = agendado, vermelho = erro; ao lado, total de curtidas. */
+function SocialCell({ channels, onOpen }: { channels: SocialChannel[]; onOpen: () => void }) {
+  if (!channels.length) {
+    return (
+      <button onClick={onOpen} className="text-left text-xs text-slate-300 hover:text-violet-600">
+        não enviado
+      </button>
+    );
+  }
+  const likes = channels.reduce((n, c) => n + c.likes, 0);
+  return (
+    <button onClick={onOpen} className="flex items-center gap-1 text-left" title="Abrir publicação">
+      {channels.map((c) => (
+        <span
+          key={c.platform}
+          className={`rounded ${c.status === "failed" ? "ring-2 ring-red-500" : c.status === "scheduled" ? "opacity-40" : ""}`}
+        >
+          <NetworkBadge platform={c.platform} />
+        </span>
+      ))}
+      {channels.some((c) => c.status === "published") && <span className="ml-1 text-xs tabular-nums text-slate-500">❤ {likes}</span>}
+    </button>
   );
 }

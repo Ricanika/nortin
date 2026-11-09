@@ -11,6 +11,8 @@ import { useWorkspace } from "./WorkspaceContext";
 import FolderLink, { folderService } from "./FolderLink";
 import { CampaignResultsEditor } from "./CampaignResults";
 import type { CampaignResult } from "@/lib/campaign";
+import type { SocialChannel } from "@/lib/social";
+import SocialPost from "./SocialPost";
 
 type Message = Omit<Comment, "profiles">;
 
@@ -45,6 +47,7 @@ export default function TaskDrawer({
   task,
   listFolder,
   campaign,
+  social,
   statuses,
   actions,
   onClose,
@@ -52,6 +55,7 @@ export default function TaskDrawer({
   task: Task;
   listFolder: string | null;
   campaign?: { results: CampaignResult[]; onSaved: (r: CampaignResult) => void };
+  social?: SocialChannel[];
   statuses: Status[];
   actions: TaskActions;
   onClose: () => void;
@@ -151,6 +155,8 @@ export default function TaskDrawer({
           </div>
         </div>
 
+        {/* Dados, resultados e publicação rolam juntos; o chat fica sempre visível embaixo */}
+        <div className={`shrink-0 overflow-y-auto ${social || campaign ? "max-h-[62vh]" : ""}`}>
         {/* Dados da tarefa */}
         <div className="space-y-4 border-b px-5 py-4">
           <input
@@ -212,6 +218,14 @@ export default function TaskDrawer({
             {showResults && <CampaignResultsEditor taskId={task.id} results={campaign.results} onSaved={campaign.onSaved} />}
           </div>
         )}
+
+        {social && (
+          <div className="border-b px-5 py-3">
+            <div className="mb-2 text-sm font-semibold text-slate-700">📱 Publicação</div>
+            <SocialPost task={task} channels={social} actions={actions} />
+          </div>
+        )}
+        </div>
 
         {/* Chat */}
         <div className="flex min-h-0 flex-1 flex-col bg-slate-50">
