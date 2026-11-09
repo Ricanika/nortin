@@ -159,6 +159,18 @@ export default function Sidebar({
     notifyStructureChanged();
   }
 
+  // Lista de campanha ganha as colunas de resultado (Google/Meta); voltar não apaga os números
+  async function setListKind(list: List, kind: List["kind"]) {
+    setLists((prev) => prev.map((l) => (l.id === list.id ? { ...l, kind } : l)));
+    const { error } = await createClient().from("lists").update({ kind }).eq("id", list.id);
+    if (error) {
+      setLists((prev) => prev.map((l) => (l.id === list.id ? list : l)));
+      return toast(`Não deu para mudar a lista: ${error.message}`);
+    }
+    toast(kind === "campaign" ? `"${list.name}" agora é lista de campanha 📈` : `"${list.name}" voltou a ser lista comum`);
+    notifyStructureChanged();
+  }
+
   async function setListArchived(list: List, archived: boolean, silent = false) {
     const stamp = archived ? new Date().toISOString() : null;
     setLists((prev) => prev.map((l) => (l.id === list.id ? { ...l, archived_at: stamp } : l)));
@@ -323,6 +335,11 @@ export default function Sidebar({
                         }`}
                       >
                         <Link href={href} className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1">
+                          {list.kind === "campaign" ? (
+                            <span className="w-3.5 shrink-0 text-center text-xs" title="Lista de campanha">
+                              📈
+                            </span>
+                          ) : (
                           <svg
                             viewBox="0 0 16 16"
                             className="h-3.5 w-3.5 shrink-0 text-slate-400"
@@ -334,6 +351,7 @@ export default function Sidebar({
                           >
                             <path d="M2 4l1.2 1.2L5.5 3M2 9l1.2 1.2L5.5 8M8 4.2h6M8 9.2h6M8 13h6M2.5 13h2" />
                           </svg>
+                          )}
                           <span className="truncate">{list.name}</span>
                           {openCounts[list.id] ? (
                             <span className="ml-auto shrink-0 text-xs font-normal tabular-nums text-slate-400 group-hover:hidden">
@@ -343,7 +361,7 @@ export default function Sidebar({
                         </Link>
                         <Popover
                           label={`Opções de ${list.name}`}
-                          width={190}
+                          width={230}
                           triggerClassName="invisible mr-1 rounded px-1 leading-none text-slate-500 hover:bg-slate-300 group-hover:visible aria-expanded:visible"
                           trigger="⋯"
                         >
@@ -351,6 +369,15 @@ export default function Sidebar({
                             <>
                               <button className={menuItem} onClick={() => startRename("list", list.id, list.name, close)}>
                                 ✏️ Renomear
+                              </button>
+                              <button
+                                className={menuItem}
+                                onClick={() => {
+                                  close();
+                                  void setListKind(list, list.kind === "campaign" ? "tasks" : "campaign");
+                                }}
+                              >
+                                {list.kind === "campaign" ? "☰ Voltar a lista comum" : "📈 Tornar lista de campanha"}
                               </button>
                               <button
                                 className={menuItem}

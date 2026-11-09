@@ -10,6 +10,8 @@ import BoardView from "./BoardView";
 import TaskDrawer from "./TaskDrawer";
 import CalendarView from "./CalendarView";
 import FolderLink from "./FolderLink";
+import { CampaignSummary } from "./CampaignResults";
+import { toResult, type CampaignResult } from "@/lib/campaign";
 import { useToast } from "./Toast";
 import { notifyStructureChanged, STRUCTURE_EVENT, toggleTarget } from "@/lib/tasks";
 
@@ -44,6 +46,38 @@ export default function ListScreen({ listId }: { listId: string }) {
   const supabase = useMemo(() => createClient(), []);
   const [list, setList] = useState<List | null>(null);
   const [spaceArchived, setSpaceArchived] = useState(false);
+  const [results, setResults] = useState<CampaignResult[]>([]);
+  const isCampaign = list?.kind === "campaign";
+
+  const saveResult = useCallback(
+    (r: CampaignResult) =>
+      setResults((prev) => [...prev.filter((x) => !(x.task_id === r.task_id && x.platform === r.platform)), r]),
+    [],
+  );
+
+  // Lista de campanha: resultados Google/Meta das tarefas, em tempo real
+  useEffect(() => {
+    if (!isCampaign) return;
+    supabase
+      .from("campaign_results")
+      .select("task_id, platform, impressions, clicks, spend, tasks!inner(list_id)")
+      .eq("tasks.list_id", listId)
+      .then(({ data }) => setResults((data ?? []).map((r) => toResult(r))));
+    const channel = supabase
+      .channel(`campaign:${listId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "campaign_results", filter: `workspace_id=eq.${workspace.id}` },
+        (payload) => {
+          if (payload.eventType === "DELETE") return;
+          saveResult(toResult(payload.new as Record<string, unknown>));
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isCampaign, listId, supabase, workspace.id, saveResult]);
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [query, setQuery] = useState("");
@@ -61,9 +95,9 @@ export default function ListScreen({ listId }: { listId: string }) {
 
   // Situação de arquivo da lista e do Space (atualiza se alguém arquivar pela barra lateral)
   const loadArchive = useCallback(async () => {
-    const { data } = await supabase.from("lists").select("archived_at, spaces(archived_at)").eq("id", listId).single();
+    const { data } = await supabase.from("lists").select("archived_at, kind, spaces(archived_at)").eq("id", listId).single();
     if (!data) return;
-    setList((prev) => (prev ? { ...prev, archived_at: data.archived_at } : prev));
+    setList((prev) => (prev ? { ...prev, archived_at: data.archived_at, kind: data.kind as List["kind"] } : prev));
     setSpaceArchived(Boolean((data.spaces as unknown as { archived_at: string | null } | null)?.archived_at));
   }, [supabase, listId]);
 
@@ -363,8 +397,18 @@ export default function ListScreen({ listId }: { listId: string }) {
       )}
 
       <div className="min-h-0 flex-1 overflow-auto bg-white">
+        {isCampaign && view === "list" && (
+          <div className="px-4 pt-4 sm:px-6">
+            <CampaignSummary results={results.filter((r) => tasks.some((t) => t.id === r.task_id))} />
+          </div>
+        )}
         {view === "list" ? (
-          <ListView statuses={sortedStatuses} tasks={visibleTasks} actions={actions} />
+          <ListView
+            statuses={sortedStatuses}
+            tasks={visibleTasks}
+            actions={actions}
+            campaign={isCampaign ? { results, onSaved: saveResult } : undefined}
+          />
         ) : view === "calendar" ? (
           <CalendarView
             items={visibleTasks.map((t) => {
@@ -402,6 +446,7 @@ export default function ListScreen({ listId }: { listId: string }) {
           key={openTask.id}
           task={openTask}
           listFolder={list?.folder_url ?? null}
+          campaign={isCampaign ? { results: results.filter((r) => r.task_id === openTask.id), onSaved: saveResult } : undefined}
           statuses={sortedStatuses}
           actions={actions}
           onClose={() => setParam("t", null)}

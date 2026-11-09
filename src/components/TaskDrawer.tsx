@@ -9,6 +9,8 @@ import { AssigneePicker, Avatar } from "./TaskBits";
 import { DuePicker, PriorityPicker, StatusPicker } from "./InlineEditors";
 import { useWorkspace } from "./WorkspaceContext";
 import FolderLink, { folderService } from "./FolderLink";
+import { CampaignResultsEditor } from "./CampaignResults";
+import type { CampaignResult } from "@/lib/campaign";
 
 type Message = Omit<Comment, "profiles">;
 
@@ -42,12 +44,14 @@ function MessageBody({ text, mine }: { text: string; mine: boolean }) {
 export default function TaskDrawer({
   task,
   listFolder,
+  campaign,
   statuses,
   actions,
   onClose,
 }: {
   task: Task;
   listFolder: string | null;
+  campaign?: { results: CampaignResult[]; onSaved: (r: CampaignResult) => void };
   statuses: Status[];
   actions: TaskActions;
   onClose: () => void;
@@ -55,6 +59,7 @@ export default function TaskDrawer({
   const supabase = useMemo(() => createClient(), []);
   const { members, me } = useWorkspace();
   const [title, setTitle] = useState(task.title);
+  const [showResults, setShowResults] = useState(true);
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -194,6 +199,19 @@ export default function TaskDrawer({
             </div>
           </div>
         </div>
+
+        {campaign && (
+          <div className="border-b px-5 py-3">
+            <button
+              onClick={() => setShowResults(!showResults)}
+              className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-700"
+              aria-expanded={showResults}
+            >
+              <span className="w-3 text-slate-400">{showResults ? "▾" : "▸"}</span>📈 Resultados da campanha
+            </button>
+            {showResults && <CampaignResultsEditor taskId={task.id} results={campaign.results} onSaved={campaign.onSaved} />}
+          </div>
+        )}
 
         {/* Chat */}
         <div className="flex min-h-0 flex-1 flex-col bg-slate-50">

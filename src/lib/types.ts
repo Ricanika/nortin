@@ -37,6 +37,8 @@ export interface List {
   archived_at: string | null;
   /** link da pasta no OneDrive/SharePoint/Drive */
   folder_url: string | null;
+  /** "campaign" mostra os resultados de Google/Meta por tarefa */
+  kind: "tasks" | "campaign";
 }
 
 export interface Status {

@@ -7,20 +7,28 @@ import type { TaskActions } from "./ListScreen";
 import { CompleteToggle, DuePicker, PriorityPicker, StatusPicker } from "./InlineEditors";
 import { AssigneePicker, NewTaskInput } from "./TaskBits";
 import { useWorkspace } from "./WorkspaceContext";
+import { CampaignCells } from "./CampaignResults";
+import type { CampaignResult } from "@/lib/campaign";
 
-const COLS = "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_32px]";
+const COLS = "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_32px] min-w-[700px]";
+// Lista de campanha: + Plataformas, Impressões, Cliques, CPC, Gasto (larguras iguais às do CampaignCells)
+const COLS_CAMPAIGN =
+  "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_52px_84px_72px_78px_96px_32px] min-w-[1130px]";
 
 export default function ListView({
   statuses,
   tasks,
   actions,
+  campaign,
 }: {
   statuses: Status[];
   tasks: Task[];
   actions: TaskActions;
+  campaign?: { results: CampaignResult[]; onSaved: (r: CampaignResult) => void };
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const { members } = useWorkspace();
+  const cols = campaign ? COLS_CAMPAIGN : COLS;
 
   return (
     <div className="space-y-6 p-4 pb-28 sm:p-6">
@@ -42,18 +50,27 @@ export default function ListView({
 
             {!collapsed[status.id] && (
               <div className="overflow-x-auto sm:ml-5">
-                <div className={`grid ${COLS} min-w-[700px] border-b px-2 pb-1 text-xs text-slate-400`}>
+                <div className={`grid ${cols} border-b px-2 pb-1 text-xs text-slate-400`}>
                   <span className="pl-7">Nome</span>
                   <span>Responsáveis</span>
                   <span>Status</span>
                   <span>Prioridade</span>
                   <span>Prazo</span>
+                  {campaign && (
+                    <>
+                      <span className="pl-1">Mídia</span>
+                      <span className="pr-2 text-right">Impressões</span>
+                      <span className="pr-2 text-right">Cliques</span>
+                      <span className="pr-2 text-right">CPC</span>
+                      <span className="pr-2 text-right">Gasto</span>
+                    </>
+                  )}
                   <span />
                 </div>
                 {group.map((task) => (
                   <div
                     key={task.id}
-                    className={`group grid ${COLS} min-w-[700px] items-center border-b px-2 py-1.5 text-sm hover:bg-slate-50`}
+                    className={`group grid ${cols} items-center border-b px-2 py-1.5 text-sm hover:bg-slate-50`}
                   >
                     <div className="flex min-w-0 items-center gap-2">
                       <CompleteToggle done={isDone} color={status.color} onToggle={() => actions.toggleDone(task.id)} />
@@ -84,6 +101,14 @@ export default function ListView({
                       recurrence={task.recurrence}
                       onRecurrenceChange={(recurrence) => actions.update(task.id, { recurrence })}
                     />
+                    {campaign && (
+                      <CampaignCells
+                        taskId={task.id}
+                        title={task.title}
+                        results={campaign.results.filter((r) => r.task_id === task.id)}
+                        onSaved={campaign.onSaved}
+                      />
+                    )}
                     <button
                       title="Excluir"
                       aria-label="Excluir tarefa"
