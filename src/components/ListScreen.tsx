@@ -256,7 +256,8 @@ export default function ListScreen({ listId }: { listId: string }) {
       setTasks((prev) => prev.filter((t) => t.id !== id));
       if (openTaskId === id) setParam("t", null);
       let undone = false;
-      toast("Tarefa excluída", {
+      const scheduled = channels.some((c) => c.task_id === id && c.status !== "published");
+      toast(scheduled ? "Tarefa excluída · o agendamento no GHL será cancelado" : "Tarefa excluída", {
         undo: () => {
           undone = true;
           setTasks((prev) => (prev.some((t) => t.id === id) ? prev : [...prev, task]));
@@ -264,6 +265,18 @@ export default function ListScreen({ listId }: { listId: string }) {
       });
       setTimeout(async () => {
         if (undone) return;
+        // Post de conteúdo agendado: cancela no GHL antes, senão ele seria publicado mesmo sem a tarefa
+        if (channels.some((c) => c.task_id === id && c.status !== "published")) {
+          const res = await fetch("/api/social/cancel", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ taskId: id }),
+          });
+          if (!res.ok) {
+            setTasks((prev) => (prev.some((t) => t.id === id) ? prev : [...prev, task]));
+            return setError("Não deu para cancelar o agendamento no GHL, então a tarefa não foi excluída. Tente de novo.");
+          }
+        }
         const { error } = await supabase.from("tasks").delete().eq("id", id);
         if (error) setError(error.message);
       }, 5200);

@@ -101,6 +101,10 @@ export async function getPost(token: string, locationId: string, postId: string)
   return r.results?.post ?? null;
 }
 
+export async function deletePost(token: string, locationId: string, postId: string) {
+  await ghl(token, `/social-media-posting/${locationId}/posts/${postId}`, { method: "DELETE" });
+}
+
 export function errorText(e: unknown): string | null {
   if (!e) return null;
   if (typeof e === "string") return e;

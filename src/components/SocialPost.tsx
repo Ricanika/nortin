@@ -78,6 +78,10 @@ export default function SocialPost({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [cancelMode, setCancelMode] = useState<null | "cancel" | "edit">(null);
+  const [cancelling, setCancelling] = useState(false);
+  // Ao "Alterar", o formulário volta com as mesmas redes que estavam agendadas
+  const keepAccounts = useRef<string[] | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Redes conectadas no GHL da marca; por padrão marca as 5 do fluxo que estiverem conectadas
@@ -90,7 +94,15 @@ export default function SocialPost({
         const rank = (p: string) => (DEFAULT_NETWORKS.includes(p) ? DEFAULT_NETWORKS.indexOf(p) : 99);
         const list = (j.accounts as Account[]).sort((a, b) => rank(a.platform) - rank(b.platform));
         setAccounts(list);
-        setSelected(new Set(list.filter((a) => a.connected && DEFAULT_NETWORKS.includes(a.platform)).map((a) => a.id)));
+        const keep = keepAccounts.current;
+        setSelected(
+          new Set(
+            list
+              .filter((a) => a.connected && (keep ? keep.includes(a.id) : DEFAULT_NETWORKS.includes(a.platform)))
+              .map((a) => a.id),
+          ),
+        );
+        keepAccounts.current = null;
       })
       .catch(() => setAccountsError("Não deu para buscar as redes no GHL."));
   }, [task.list_id, sent]);
@@ -159,6 +171,34 @@ export default function SocialPost({
     if (!res.ok) return setError(json.error ?? "Não deu para enviar ao GHL.");
   }
 
+  /** Cancela no GHL; em "edit", o formulário volta preenchido para reagendar. */
+  async function cancelSchedule(mode: "cancel" | "edit") {
+    setCancelling(true);
+    setError(null);
+    if (mode === "edit") {
+      keepAccounts.current = channels.map((c) => c.ghl_account_id);
+      if (task.publish_at) {
+        setPublishAt(localInput(new Date(task.publish_at)));
+        setWhen("schedule");
+      }
+    }
+    const res = await fetch("/api/social/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ taskId: task.id }),
+    });
+    const json = await res.json().catch(() => ({}));
+    setCancelling(false);
+    setCancelMode(null);
+    if (!res.ok) {
+      keepAccounts.current = null;
+      return setError(json.error ?? "Não deu para cancelar no GHL.");
+    }
+    if (json.published?.length) {
+      setError(`Já publicado em ${json.published.map((p: string) => networkOf(p).label).join(", ")}: para tirar do ar, apague na própria rede.`);
+    }
+  }
+
   async function syncNow() {
     setSyncing(true);
     setError(null);
@@ -210,9 +250,41 @@ export default function SocialPost({
             </li>
           ))}
         </ul>
+        {channels.some((c) => c.status !== "published") &&
+          (cancelMode ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <span className="flex-1">
+                {cancelMode === "edit"
+                  ? "Para alterar, o agendamento atual é cancelado no GHL e o formulário volta preenchido para você reagendar. Continuar?"
+                  : "Cancelar o agendamento em todas as redes ainda não publicadas? O post volta para Aprovação."}
+              </span>
+              <button
+                onClick={() => void cancelSchedule(cancelMode)}
+                disabled={cancelling}
+                className="rounded-md bg-amber-600 px-3 py-1.5 font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+              >
+                {cancelling ? "Cancelando…" : "Sim"}
+              </button>
+              <button onClick={() => setCancelMode(null)} className="px-2 text-amber-800">
+                Não
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => setCancelMode("edit")} className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-slate-50">
+                ✏️ Alterar
+              </button>
+              <button
+                onClick={() => setCancelMode("cancel")}
+                className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
+              >
+                🚫 Cancelar agendamento
+              </button>
+            </div>
+          ))}
         <p className="text-[11px] text-slate-400">
           Métricas do GHL (curtidas, comentários, compartilhamentos), atualizadas todo dia na 1ª semana, toda semana até 1 mês e depois
-          1 vez por mês. Para mudar um post já enviado, edite no GHL.
+          1 vez por mês. Post já publicado sai do ar só apagando na própria rede.
         </p>
         {error && <p className="text-xs text-red-600">{error}</p>}
       </div>
