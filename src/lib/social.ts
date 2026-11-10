@@ -13,6 +13,8 @@ export interface SocialChannel {
   likes: number;
   comments: number;
   shares: number;
+  /** digitado por canal (o GHL não entrega impressões) */
+  impressions: number;
   metrics_at: string | null;
 }
 
@@ -47,3 +49,34 @@ export function nextSyncAt(publishedAt: Date, now = new Date()): Date {
   const step = ageDays < 7 ? 1 : ageDays < 30 ? 7 : 30;
   return new Date(now.getTime() + step * 864e5);
 }
+
+/** Curtidas + comentários + compartilhamentos */
+export const interactions = (c: Pick<SocialChannel, "likes" | "comments" | "shares">) => c.likes + c.comments + c.shares;
+
+export interface ContentTotals {
+  impressions: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  /** interações ÷ impressões; null quando não há impressões */
+  engagement: number | null;
+}
+
+/** Soma dos canais. O engajamento usa só os canais com impressões, para não distorcer a taxa. */
+export function contentTotals(channels: SocialChannel[]): ContentTotals {
+  const sum = (k: "impressions" | "likes" | "comments" | "shares") => channels.reduce((n, c) => n + (c[k] || 0), 0);
+  const withImp = channels.filter((c) => c.impressions > 0);
+  const imp = withImp.reduce((n, c) => n + c.impressions, 0);
+  return {
+    impressions: sum("impressions"),
+    likes: sum("likes"),
+    comments: sum("comments"),
+    shares: sum("shares"),
+    engagement: imp > 0 ? withImp.reduce((n, c) => n + interactions(c), 0) / imp : null,
+  };
+}
+
+const pctFmt = new Intl.NumberFormat("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const numFmt = new Intl.NumberFormat("pt-BR");
+export const fmtPct = (v: number | null) => (v === null ? "—" : pctFmt.format(v));
+export const fmtNum = (v: number) => numFmt.format(v);

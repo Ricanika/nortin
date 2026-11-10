@@ -11,6 +11,7 @@ import TaskDrawer from "./TaskDrawer";
 import CalendarView from "./CalendarView";
 import FolderLink from "./FolderLink";
 import { CampaignSummary } from "./CampaignResults";
+import { ContentSummary } from "./ContentMetrics";
 import { toResult, type CampaignResult } from "@/lib/campaign";
 import type { SocialChannel } from "@/lib/social";
 import { useToast } from "./Toast";
@@ -432,6 +433,11 @@ export default function ListScreen({ listId }: { listId: string }) {
       )}
 
       <div className="min-h-0 flex-1 overflow-auto bg-white">
+        {isContent && view === "list" && (
+          <div className="px-4 pt-4 sm:px-6">
+            <ContentSummary channels={channels.filter((c) => tasks.some((t) => t.id === c.task_id))} />
+          </div>
+        )}
         {isCampaign && view === "list" && (
           <div className="px-4 pt-4 sm:px-6">
             <CampaignSummary results={results.filter((r) => tasks.some((t) => t.id === r.task_id))} />

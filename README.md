@@ -89,6 +89,9 @@ banco (RLS e triggers), não só na tela.
       valor gasto), colunas na lista, resumo no topo e quadro no painel da tarefa
 - [x] Listas de conteúdo: post com texto, imagem/vídeo, tipo e data; publica ou agenda pelo GHL (Social Planner)
       em Instagram, Facebook, TikTok, LinkedIn e YouTube; link e métricas por rede, atualizadas por robô diário
+- [x] Performance de conteúdo: Impressões (digitadas por canal), Curtidas e Engajamento % por post (soma dos canais),
+      ▸ abre o resultado por canal; análise rápida no topo, geral e por rede
+- [ ] Impressões automáticas lendo direto do Instagram/Facebook
 - [ ] Importar resultados automaticamente do Google Ads e do Meta Ads
 - [ ] Folders na sidebar, convite por link
 - [ ] Fase 3: Custom Fields (`custom_fields` + `task_custom_values` jsonb)

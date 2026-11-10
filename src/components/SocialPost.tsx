@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { DEFAULT_NETWORKS, networkOf, type MediaItem, type SocialChannel } from "@/lib/social";
+import { contentTotals, DEFAULT_NETWORKS, fmtNum, interactions, networkOf, type MediaItem, type SocialChannel } from "@/lib/social";
+import { EngagementValue, ImpressionsInput } from "./ContentMetrics";
+import NetworkBadge from "./NetworkBadge";
 import type { Task } from "@/lib/types";
 import type { TaskActions } from "./ListScreen";
 import { useWorkspace } from "./WorkspaceContext";
@@ -27,18 +29,6 @@ const STATUS: Record<SocialChannel["status"], { label: string; cls: string }> = 
   failed: { label: "❌ Erro", cls: "bg-red-50 text-red-700" },
 };
 
-export function NetworkBadge({ platform, dim = false }: { platform: string; dim?: boolean }) {
-  const n = networkOf(platform);
-  return (
-    <span
-      title={n.label}
-      className={`inline-flex h-5 min-w-[22px] items-center justify-center rounded px-1 text-[9px] font-bold text-white ${dim ? "opacity-25" : ""}`}
-      style={{ background: n.color }}
-    >
-      {n.short}
-    </span>
-  );
-}
 
 const fmtDateTime = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -214,17 +204,13 @@ export default function SocialPost({
 
   // ----- Depois de enviado: acompanhamento por rede -----
   if (sent) {
-    const totals = channels.reduce((t, c) => ({ likes: t.likes + c.likes, comments: t.comments + c.comments, shares: t.shares + c.shares }), {
-      likes: 0,
-      comments: 0,
-      shares: 0,
-    });
+    const totals = contentTotals(channels);
     return (
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
           <span>
-            Enviado ao GHL{task.publish_at ? ` · publicação ${fmtDateTime(task.publish_at)}` : ""} · ❤ {totals.likes} · 💬 {totals.comments} · ↗{" "}
-            {totals.shares}
+            Enviado ao GHL{task.publish_at ? ` · publicação ${fmtDateTime(task.publish_at)}` : ""} · 👁 {fmtNum(totals.impressions)} · ❤{" "}
+            {totals.likes} · 💬 {totals.comments} · ↗ {totals.shares} · engaj. <EngagementValue value={totals.engagement} />
           </span>
           <button onClick={syncNow} disabled={syncing} className="rounded border px-2 py-1 font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50">
             {syncing ? "Atualizando…" : "🔄 Atualizar agora"}
@@ -242,8 +228,12 @@ export default function SocialPost({
                 </a>
               )}
               {c.status === "published" && (
-                <span className="w-full pl-8 text-xs tabular-nums text-slate-500 sm:w-auto sm:pl-0">
-                  ❤ {c.likes} · 💬 {c.comments} · ↗ {c.shares}
+                <span className="flex w-full items-center gap-2 pl-8 text-xs tabular-nums text-slate-500">
+                  <span className="flex items-center gap-1">
+                    👁 <span className="w-20"><ImpressionsInput channel={c} /></span>
+                  </span>
+                  ❤ {c.likes} · 💬 {c.comments} · ↗ {c.shares} · engaj.{" "}
+                  <EngagementValue value={c.impressions > 0 ? interactions(c) / c.impressions : null} />
                 </span>
               )}
               {c.status === "failed" && c.error && <span className="w-full pl-8 text-xs text-red-600">{c.error}</span>}

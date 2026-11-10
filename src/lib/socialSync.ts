@@ -84,7 +84,9 @@ export async function syncTask(db: SupabaseClient, taskId: string) {
       .eq("task_id", c.task_id)
       .eq("platform", c.platform);
     if (status === "published") {
-      await db.from("social_metrics").insert({ task_id: c.task_id, platform: c.platform, ...m });
+      await db
+        .from("social_metrics")
+        .insert({ task_id: c.task_id, platform: c.platform, ...m, impressions: (c as ChannelRow & { impressions?: number }).impressions ?? null });
     }
     updated++;
   }

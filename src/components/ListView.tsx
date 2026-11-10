@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { parseQuick } from "@/lib/quickParse";
 import type { Status, Task } from "@/lib/types";
 import type { TaskActions } from "./ListScreen";
@@ -10,14 +10,15 @@ import { useWorkspace } from "./WorkspaceContext";
 import { CampaignCells } from "./CampaignResults";
 import type { CampaignResult } from "@/lib/campaign";
 import type { SocialChannel } from "@/lib/social";
-import { NetworkBadge } from "./SocialPost";
+import { ChannelRows, ContentCells } from "./ContentMetrics";
 
 const COLS = "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_32px] min-w-[700px]";
 // Lista de campanha: + Plataformas, Impressões, Cliques, CPC, Gasto (larguras iguais às do CampaignCells)
 const COLS_CAMPAIGN =
   "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_52px_84px_72px_78px_96px_32px] min-w-[1130px]";
-// Lista de conteúdo: + Redes (status de cada canal e curtidas)
-const COLS_CONTENT = "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_190px_32px] min-w-[900px]";
+// Lista de conteúdo: + Redes, Impressões, Curtidas, Engajamento (soma dos canais; ▸ abre por canal)
+const COLS_CONTENT =
+  "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_150px_90px_80px_90px_32px] min-w-[1080px]";
 
 export default function ListView({
   statuses,
@@ -33,6 +34,14 @@ export default function ListView({
   social?: SocialChannel[];
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [openChannels, setOpenChannels] = useState<Set<string>>(new Set());
+  const toggleChannels = (id: string) =>
+    setOpenChannels((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
   const { members } = useWorkspace();
   const cols = campaign ? COLS_CAMPAIGN : social ? COLS_CONTENT : COLS;
 
@@ -62,7 +71,16 @@ export default function ListView({
                   <span>Status</span>
                   <span>Prioridade</span>
                   <span>Prazo</span>
-                  {social && <span>Redes</span>}
+                  {social && (
+                    <>
+                      <span className="pl-4">Redes</span>
+                      <span className="pr-2 text-right">Impressões</span>
+                      <span className="pr-2 text-right">Curtidas</span>
+                      <span className="pr-2 text-right" title="(curtidas + comentários + compartilhamentos) ÷ impressões">
+                        Engajam.
+                      </span>
+                    </>
+                  )}
                   {campaign && (
                     <>
                       <span className="pl-1">Mídia</span>
@@ -75,8 +93,8 @@ export default function ListView({
                   <span />
                 </div>
                 {group.map((task) => (
+                  <Fragment key={task.id}>
                   <div
-                    key={task.id}
                     className={`group grid ${cols} items-center border-b px-2 py-1.5 text-sm hover:bg-slate-50`}
                   >
                     <div className="flex min-w-0 items-center gap-2">
@@ -108,7 +126,13 @@ export default function ListView({
                       recurrence={task.recurrence}
                       onRecurrenceChange={(recurrence) => actions.update(task.id, { recurrence })}
                     />
-                    {social && <SocialCell channels={social.filter((c) => c.task_id === task.id)} onOpen={() => actions.open(task.id)} />}
+                    {social && (
+                      <ContentCells
+                        channels={social.filter((c) => c.task_id === task.id)}
+                        expanded={openChannels.has(task.id)}
+                        onToggle={() => toggleChannels(task.id)}
+                      />
+                    )}
                     {campaign && (
                       <CampaignCells
                         taskId={task.id}
@@ -126,6 +150,10 @@ export default function ListView({
                       🗑
                     </button>
                   </div>
+                  {social && openChannels.has(task.id) && (
+                    <ChannelRows channels={social.filter((c) => c.task_id === task.id)} cols={cols} />
+                  )}
+                  </Fragment>
                 ))}
                 <NewTaskInput
                   className="block w-full px-2 py-1.5"
@@ -144,27 +172,3 @@ export default function ListView({
   );
 }
 
-/** Canais do post: cheio = publicado, contorno = agendado, vermelho = erro; ao lado, total de curtidas. */
-function SocialCell({ channels, onOpen }: { channels: SocialChannel[]; onOpen: () => void }) {
-  if (!channels.length) {
-    return (
-      <button onClick={onOpen} className="text-left text-xs text-slate-300 hover:text-violet-600">
-        não enviado
-      </button>
-    );
-  }
-  const likes = channels.reduce((n, c) => n + c.likes, 0);
-  return (
-    <button onClick={onOpen} className="flex items-center gap-1 text-left" title="Abrir publicação">
-      {channels.map((c) => (
-        <span
-          key={c.platform}
-          className={`rounded ${c.status === "failed" ? "ring-2 ring-red-500" : c.status === "scheduled" ? "opacity-40" : ""}`}
-        >
-          <NetworkBadge platform={c.platform} />
-        </span>
-      ))}
-      {channels.some((c) => c.status === "published") && <span className="ml-1 text-xs tabular-nums text-slate-500">❤ {likes}</span>}
-    </button>
-  );
-}
