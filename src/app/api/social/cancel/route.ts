@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: task } = await supabase
     .from("tasks")
-    .select("id, list_id, publish_at, ghl_parent_id, lists(spaces(ghl_location_id, ghl_token_env, ghl_user_id))")
+    .select("id, list_id, publish_at, ghl_parent_id, ghl_parent_ids, lists(spaces(ghl_location_id, ghl_token_env, ghl_user_id))")
     .eq("id", taskId)
     .maybeSingle();
   if (!task) return NextResponse.json({ error: "Post não encontrado" }, { status: 404 });
@@ -24,10 +24,11 @@ export async function POST(request: NextRequest) {
 
     // No GHL, o agendamento é um post só com várias redes; acha pelo código guardado no envio
     let cancelled = 0;
-    if (task.ghl_parent_id) {
+    const parents = new Set<string>([...((task.ghl_parent_ids as string[] | null) ?? []), ...(task.ghl_parent_id ? [task.ghl_parent_id] : [])]);
+    if (parents.size) {
       const at = task.publish_at ? new Date(task.publish_at) : new Date();
       const posts = await listPosts(token, locationId, new Date(at.getTime() - 2 * 864e5), new Date(at.getTime() + 2 * 864e5));
-      const mine = posts.filter((p) => p.parentPostId === task.ghl_parent_id || p._id === task.ghl_parent_id);
+      const mine = posts.filter((p) => parents.has(p.parentPostId ?? "") || parents.has(p._id));
       for (const p of mine.filter((p) => p.status !== "published")) {
         await deletePost(token, locationId, p._id);
         cancelled++;
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
       await supabase
         .from("tasks")
-        .update({ ghl_parent_id: null, publish_at: null, ...(back ? { status_id: back.id } : {}) })
+        .update({ ghl_parent_id: null, ghl_parent_ids: [], publish_at: null, ...(back ? { status_id: back.id } : {}) })
         .eq("id", taskId);
     }
     return NextResponse.json({ ok: true, cancelled, published });

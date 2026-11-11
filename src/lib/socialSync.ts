@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { errorText, getPost, ghlConfig, listPosts, type GhlPost, type GhlSpace } from "./ghl";
+import { errorText, ghlConfig, listPosts, type GhlPost, type GhlSpace } from "./ghl";
 import { nextSyncAt } from "./social";
 
 interface TaskRow {
@@ -10,6 +10,7 @@ interface TaskRow {
   description: string | null;
   publish_at: string | null;
   ghl_parent_id: string | null;
+  ghl_parent_ids: string[] | null;
 }
 
 interface ChannelRow {
@@ -32,7 +33,7 @@ const ghlStatus = (s: string) => (s === "published" ? "published" : s === "faile
 export async function syncTask(db: SupabaseClient, taskId: string) {
   const { data: task } = await db
     .from("tasks")
-    .select("id, list_id, status_id, description, publish_at, ghl_parent_id, lists(space_id, spaces(ghl_location_id, ghl_token_env, ghl_user_id))")
+    .select("id, list_id, status_id, description, publish_at, ghl_parent_id, ghl_parent_ids, lists(space_id, spaces(ghl_location_id, ghl_token_env, ghl_user_id))")
     .eq("id", taskId)
     .single();
   if (!task) return { updated: 0 };
@@ -42,38 +43,45 @@ export async function syncTask(db: SupabaseClient, taskId: string) {
   const { data: channels } = await db.from("social_channels").select("*").eq("task_id", taskId);
   if (!channels?.length) return { updated: 0 };
 
-  // Redes ainda sem o código do post no GHL: procura no período da publicação
-  const missing = (channels as ChannelRow[]).filter((c) => !c.ghl_post_id);
-  let found: GhlPost[] = [];
-  if (missing.length) {
-    const t = task as TaskRow;
-    const at = t.publish_at ? new Date(t.publish_at) : new Date();
-    const posts = await listPosts(token, locationId, new Date(at.getTime() - 864e5), new Date(at.getTime() + 3 * 864e5));
-    found = posts.filter(
-      (p) =>
-        (t.ghl_parent_id && (p.parentPostId === t.ghl_parent_id || p._id === t.ghl_parent_id)) ||
-        (!t.ghl_parent_id && p.summary === t.description),
-    );
-  }
+  // Um post do app pode virar vários no GHL (um por story, ou Instagram separado por causa do link):
+  // busca todos pelo período e pelos códigos guardados no envio
+  const t = task as TaskRow;
+  const parents = new Set([...(t.ghl_parent_ids ?? []), ...(t.ghl_parent_id ? [t.ghl_parent_id] : [])]);
+  const at = t.publish_at ? new Date(t.publish_at) : new Date();
+  const posts = await listPosts(token, locationId, new Date(at.getTime() - 864e5), new Date(at.getTime() + 3 * 864e5));
+  const mine = posts.filter((p) =>
+    parents.size ? parents.has(p.parentPostId ?? "") || parents.has(p._id) : p.summary === t.description,
+  );
 
   const now = new Date();
   let updated = 0;
   for (const c of channels as ChannelRow[]) {
-    let post: GhlPost | null = null;
-    if (c.ghl_post_id) post = await getPost(token, locationId, c.ghl_post_id).catch(() => null);
-    post ??= found.find((p) => p.accountId === c.ghl_account_id || p.platform === c.platform) ?? null;
-    if (!post) continue;
+    // Depois de publicado, cada rede vira um post com accountId; antes, o agendamento traz accountIds
+    const ofChannel = mine.filter(
+      (p) => p.accountId === c.ghl_account_id || (!p.accountId && (p as GhlPost & { accountIds?: string[] }).accountIds?.includes(c.ghl_account_id)),
+    );
+    if (!ofChannel.length) continue;
 
-    const status = ghlStatus(post.status);
-    const publishedAt = post.publishedAt ? new Date(post.publishedAt) : null;
-    const m = { likes: post.insights?.like ?? 0, comments: post.insights?.comment ?? 0, shares: post.insights?.share ?? 0 };
+    const statuses = ofChannel.map((p) => ghlStatus(p.status));
+    const status = statuses.includes("failed") ? "failed" : statuses.every((x) => x === "published") ? "published" : "scheduled";
+    const dates = ofChannel.map((p) => (p.publishedAt ? new Date(p.publishedAt).getTime() : NaN)).filter((n) => !Number.isNaN(n));
+    const publishedAt = dates.length ? new Date(Math.min(...dates)) : null;
+    const m = ofChannel.reduce(
+      (acc, p) => ({
+        likes: acc.likes + (p.insights?.like ?? 0),
+        comments: acc.comments + (p.insights?.comment ?? 0),
+        shares: acc.shares + (p.insights?.share ?? 0),
+      }),
+      { likes: 0, comments: 0, shares: 0 },
+    );
+    const failed = ofChannel.find((p) => ghlStatus(p.status) === "failed");
     await db
       .from("social_channels")
       .update({
-        ghl_post_id: post._id,
+        ghl_post_id: ofChannel.length === 1 ? ofChannel[0]._id : null,
         status,
-        link: post.previewLink || null,
-        error: status === "failed" ? errorText(post.error) ?? "Falha ao publicar" : null,
+        link: ofChannel.find((p) => p.previewLink)?.previewLink ?? null,
+        error: failed ? errorText(failed.error) ?? "Falha ao publicar" : null,
         published_at: publishedAt?.toISOString() ?? null,
         ...(status === "published" ? { ...m, metrics_at: now.toISOString() } : {}),
         next_sync_at: (status === "published" && publishedAt

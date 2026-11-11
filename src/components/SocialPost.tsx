@@ -54,6 +54,7 @@ export default function SocialPost({
   const sent = channels.length > 0;
 
   const [caption, setCaption] = useState(task.description ?? "");
+  const [cta, setCta] = useState(task.cta_url ?? "");
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [accountsError, setAccountsError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -137,8 +138,10 @@ export default function SocialPost({
   if (!caption.trim() && !media.length) problems.push("Escreva o texto ou adicione mídia.");
   if (!chosen.length) problems.push("Escolha pelo menos uma rede.");
   if (chosen.some((a) => a.platform === "instagram") && !media.length) problems.push("O Instagram precisa de imagem ou vídeo.");
-  if (task.post_type === "story" && media.length > 1)
-    problems.push("Stories levam uma imagem ou um vídeo só. Deixe 1 mídia, ou mude o tipo para Post (carrossel).");
+  const isStory = task.post_type === "story";
+  if (isStory && chosen.some((a) => !["instagram", "facebook"].includes(a.platform)))
+    problems.push("Stories só no Instagram e no Facebook: desmarque as outras redes ou mude o tipo para Post.");
+  if (cta.trim() && !/^https?:\/\/\S+$/i.test(cta.trim())) problems.push("O link de CTA precisa começar com https://");
   const needVideo = chosen.filter((a) => a.platform === "youtube" || a.platform === "tiktok").map((a) => networkOf(a.platform).label);
   if (needVideo.length && !hasVideo) problems.push(`${needVideo.join(" e ")} precisa(m) de vídeo.`);
   if (when === "schedule" && new Date(publishAt).getTime() < Date.now() + 60 * 1000) problems.push("Escolha um horário no futuro.");
@@ -147,6 +150,7 @@ export default function SocialPost({
     setBusy(true);
     setError(null);
     if (caption !== (task.description ?? "")) await actions.update(task.id, { description: caption });
+    if (cta.trim() !== (task.cta_url ?? "")) await actions.update(task.id, { cta_url: cta.trim() || null });
     const res = await fetch("/api/social/publish", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -352,6 +356,43 @@ export default function SocialPost({
           </button>
           <input ref={fileRef} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => void upload(e.target.files)} />
         </div>
+      </div>
+
+      {isStory && media.length > 1 && (
+        <p className="rounded-md bg-violet-50 px-3 py-1.5 text-xs text-violet-800">
+          📚 {media.length} stories em sequência, na ordem das imagens, com 1 minuto de diferença entre eles.
+        </p>
+      )}
+
+      <div>
+        <label htmlFor={`cta-${task.id}`} className="mb-1 block text-xs font-medium text-slate-500">
+          🔗 Link (CTA) <span className="font-normal text-slate-400">· opcional</span>
+        </label>
+        <input
+          id={`cta-${task.id}`}
+          value={cta}
+          onChange={(e) => setCta(e.target.value)}
+          onBlur={() => cta.trim() !== (task.cta_url ?? "") && actions.update(task.id, { cta_url: cta.trim() || null })}
+          placeholder="https://www.nitron.com.br/promocao"
+          inputMode="url"
+          className="w-full rounded-lg border px-3 py-2 outline-none focus:border-violet-500"
+        />
+        {cta.trim() && (
+          <ul className="mt-1 space-y-0.5 text-[11px] leading-snug text-slate-500">
+            {isStory ? (
+              <li>
+                ⚠️ <b>Stories:</b> o adesivo de link só pode ser colocado pelo app do Instagram/Facebook no celular. Nenhuma integração
+                consegue. O link fica salvo aqui para quem for colocar o adesivo.
+              </li>
+            ) : (
+              <>
+                <li>✅ Facebook, LinkedIn e YouTube: link no fim do texto, clicável.</li>
+                <li>✅ Instagram: link no 1º comentário (a legenda avisa &quot;Link no primeiro comentário&quot;).</li>
+                <li>➖ TikTok: link no texto, mas o TikTok não deixa clicar.</li>
+              </>
+            )}
+          </ul>
+        )}
       </div>
 
       <div>

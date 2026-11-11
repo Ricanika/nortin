@@ -69,6 +69,8 @@ export interface Task {
   /** Lista de conteúdo: mídia do post, tipo e horário de publicação no GHL */
   media: { url: string; type: string; name?: string }[];
   post_type: "post" | "reel" | "story";
+  /** link de CTA: fim do texto (clicável no Facebook/LinkedIn/YouTube) e 1º comentário no Instagram */
+  cta_url: string | null;
   publish_at: string | null;
   /** user_ids dos responsáveis (vem de task_assignees) */
   assignees: string[];

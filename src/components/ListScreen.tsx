@@ -18,7 +18,7 @@ import { useToast } from "./Toast";
 import { notifyStructureChanged, STRUCTURE_EVENT, toggleTarget } from "@/lib/tasks";
 
 export type TaskPatch = Partial<
-  Pick<Task, "title" | "description" | "status_id" | "priority" | "due_date" | "position" | "recurrence" | "folder_url" | "media" | "post_type">
+  Pick<Task, "title" | "description" | "status_id" | "priority" | "due_date" | "position" | "recurrence" | "folder_url" | "media" | "post_type" | "cta_url">
 >;
 
 export interface TaskActions {
