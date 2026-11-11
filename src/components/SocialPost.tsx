@@ -137,6 +137,8 @@ export default function SocialPost({
   if (!caption.trim() && !media.length) problems.push("Escreva o texto ou adicione mídia.");
   if (!chosen.length) problems.push("Escolha pelo menos uma rede.");
   if (chosen.some((a) => a.platform === "instagram") && !media.length) problems.push("O Instagram precisa de imagem ou vídeo.");
+  if (task.post_type === "story" && media.length > 1)
+    problems.push("Stories levam uma imagem ou um vídeo só. Deixe 1 mídia, ou mude o tipo para Post (carrossel).");
   const needVideo = chosen.filter((a) => a.platform === "youtube" || a.platform === "tiktok").map((a) => networkOf(a.platform).label);
   if (needVideo.length && !hasVideo) problems.push(`${needVideo.join(" e ")} precisa(m) de vídeo.`);
   if (when === "schedule" && new Date(publishAt).getTime() < Date.now() + 60 * 1000) problems.push("Escolha um horário no futuro.");
@@ -412,7 +414,7 @@ export default function SocialPost({
       {confirming ? (
         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-violet-50 px-3 py-2">
           <span className="flex-1 text-violet-800">
-            {when === "now" ? "Publicar agora" : `Agendar para ${fmtDateTime(new Date(publishAt).toISOString())}`} em{" "}
+            {when === "now" ? "Publicar agora (sai em uns 5 minutos)" : `Agendar para ${fmtDateTime(new Date(publishAt).toISOString())}`} em{" "}
             {chosen.map((a) => networkOf(a.platform).label).join(", ")}?
           </span>
           <button onClick={() => void send()} disabled={busy} className="rounded-md bg-violet-600 px-3 py-1.5 font-semibold text-white hover:bg-violet-700 disabled:opacity-50">

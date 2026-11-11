@@ -5,7 +5,8 @@ import type { MediaItem } from "@/lib/social";
 
 /**
  * Envia o post ao GHL, que publica ou agenda em cada rede escolhida.
- * "Publicar agora" agenda para daqui a 2 minutos: o GHL só aceita data futura de forma confiável.
+ * "Publicar agora" agenda para daqui a 5 minutos: o GHL recusa horários muito próximos
+ * ("Schedule Date must be after current date"); se ainda recusar, tenta com 15 minutos.
  */
 export async function POST(request: NextRequest) {
   const { taskId, accountIds, when, publishAt } = (await request.json()) as {
@@ -35,7 +36,8 @@ export async function POST(request: NextRequest) {
   const media = (task.media ?? []) as MediaItem[];
   if (!text && !media.length) return NextResponse.json({ error: "Escreva o texto ou adicione uma imagem ou vídeo." }, { status: 400 });
 
-  const date = when === "schedule" && publishAt ? new Date(publishAt) : new Date(Date.now() + 2 * 60 * 1000);
+  const NOW_MARGIN_MIN = [5, 15];
+  let date = when === "schedule" && publishAt ? new Date(publishAt) : new Date(Date.now() + NOW_MARGIN_MIN[0] * 60 * 1000);
   if (Number.isNaN(date.getTime()) || date.getTime() < Date.now() + 60 * 1000) {
     return NextResponse.json({ error: "Escolha um horário pelo menos 1 minuto no futuro." }, { status: 400 });
   }
@@ -55,20 +57,35 @@ export async function POST(request: NextRequest) {
     if (platforms.includes("instagram") && !media.length) throw new GhlError("O Instagram precisa de imagem ou vídeo.", 400);
     const needVideo = platforms.filter((p) => p === "youtube" || p === "tiktok");
     if (needVideo.length && !hasVideo) throw new GhlError(`${needVideo.join(" e ")} precisa(m) de vídeo.`, 400);
+    // Stories: cada story é uma imagem ou um vídeo só
+    if (task.post_type === "story" && media.length !== 1) {
+      throw new GhlError("Stories levam uma imagem ou um vídeo só. Deixe 1 mídia, ou mude o tipo para Post (carrossel).", 400);
+    }
 
-    const created = await ghl<Record<string, unknown>>(token, `/social-media-posting/${locationId}/posts`, {
-      method: "POST",
-      body: {
-        accountIds,
-        summary: text,
-        media: media.map((m) => ({ url: m.url, type: m.type })),
-        type: task.post_type ?? "post",
-        status: "scheduled",
-        scheduleDate: date.toISOString(),
-        userId,
-        ...(platforms.includes("youtube") ? { youtubePostDetails: { title: task.title.slice(0, 100), privacyLevel: "public", type: "video" } } : {}),
-      },
-    });
+    const send = (at: Date) =>
+      ghl<Record<string, unknown>>(token, `/social-media-posting/${locationId}/posts`, {
+        method: "POST",
+        body: {
+          accountIds,
+          summary: text,
+          media: media.map((m) => ({ url: m.url, type: m.type })),
+          type: task.post_type ?? "post",
+          status: "scheduled",
+          scheduleDate: at.toISOString(),
+          userId,
+          ...(platforms.includes("youtube") ? { youtubePostDetails: { title: task.title.slice(0, 100), privacyLevel: "public", type: "video" } } : {}),
+        },
+      });
+
+    let created: Record<string, unknown>;
+    try {
+      created = await send(date);
+    } catch (e) {
+      const tooSoon = e instanceof GhlError && e.status === 422 && /schedule date/i.test(e.message);
+      if (when === "schedule" || !tooSoon) throw e;
+      date = new Date(Date.now() + NOW_MARGIN_MIN[1] * 60 * 1000);
+      created = await send(date);
+    }
 
     // O GHL devolve o post "pai" (ou o primeiro filho); guardamos o que vier para achar cada rede depois
     const results = (created.results ?? created) as Record<string, unknown>;
