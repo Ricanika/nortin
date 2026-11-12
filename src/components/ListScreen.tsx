@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { memberName, toTask, type List, type Status, type Task } from "@/lib/types";
+import { formUrl, memberName, toTask, type List, type Status, type Task } from "@/lib/types";
 import { useWorkspace } from "./WorkspaceContext";
 import ListView from "./ListView";
 import BoardView from "./BoardView";
@@ -118,9 +118,17 @@ export default function ListScreen({ listId }: { listId: string }) {
 
   // Situação de arquivo da lista e do Space (atualiza se alguém arquivar pela barra lateral)
   const loadArchive = useCallback(async () => {
-    const { data } = await supabase.from("lists").select("archived_at, kind, spaces(archived_at)").eq("id", listId).single();
+    const { data } = await supabase
+      .from("lists")
+      .select("archived_at, kind, form_enabled, form_token, spaces(archived_at)")
+      .eq("id", listId)
+      .single();
     if (!data) return;
-    setList((prev) => (prev ? { ...prev, archived_at: data.archived_at, kind: data.kind as List["kind"] } : prev));
+    setList((prev) =>
+      prev
+        ? { ...prev, archived_at: data.archived_at, kind: data.kind as List["kind"], form_enabled: data.form_enabled, form_token: data.form_token }
+        : prev,
+    );
     setSpaceArchived(Boolean((data.spaces as unknown as { archived_at: string | null } | null)?.archived_at));
   }, [supabase, listId]);
 
@@ -368,6 +376,27 @@ export default function ListScreen({ listId }: { listId: string }) {
                 } else toast(folder_url ? "Pasta vinculada à lista" : "Pasta removida da lista");
               }}
             />
+          )}
+          {list?.form_enabled && list.form_token && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-2 py-1 text-xs text-violet-700">
+              📝 Briefing ativo
+              <button
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(formUrl(list.form_token!));
+                    toast("Link do formulário copiado 📝");
+                  } catch {
+                    toast(`Link do formulário: ${formUrl(list.form_token!)}`);
+                  }
+                }}
+                className="rounded px-1 font-semibold hover:bg-violet-100"
+              >
+                Copiar link
+              </button>
+              <a href={`/f/${list.form_token}`} target="_blank" rel="noopener noreferrer" className="rounded px-1 font-semibold hover:bg-violet-100">
+                Abrir ↗
+              </a>
+            </span>
           )}
         </div>
         <div className="mt-3 flex flex-wrap items-end justify-between gap-4">

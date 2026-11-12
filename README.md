@@ -91,6 +91,8 @@ banco (RLS e triggers), não só na tela.
       em Instagram, Facebook, TikTok, LinkedIn e YouTube; link e métricas por rede, atualizadas por robô diário
 - [x] Performance de conteúdo: Impressões (digitadas por canal), Curtidas e Engajamento % por post (soma dos canais),
       ▸ abre o resultado por canal; análise rápida no topo, geral e por rede
+- [x] Formulário de briefing por lista (link público /f/…): nome, e-mail, demanda, descrição, deadline,
+      prioridade (Urgente/Importante) e responsável; cria a tarefa na lista
 - [ ] Impressões automáticas lendo direto do Instagram/Facebook
 - [ ] Importar resultados automaticamente do Google Ads e do Meta Ads
 - [ ] Folders na sidebar, convite por link

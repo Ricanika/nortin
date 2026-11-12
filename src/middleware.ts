@@ -2,7 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // /api/social/sync é chamado pelo robô da Vercel (sem login); a rota confere o CRON_SECRET
-const PUBLIC_PATHS = ["/login", "/auth/callback", "/api/social/sync"];
+// /f/ e /api/forms/ são o formulário público de briefing (quem pede a demanda não tem conta)
+const PUBLIC_PATHS = ["/login", "/auth/callback", "/api/social/sync", "/f/", "/api/forms/"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });

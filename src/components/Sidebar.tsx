@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { notifyStructureChanged, STRUCTURE_EVENT } from "@/lib/tasks";
-import type { List, Space, Workspace } from "@/lib/types";
+import { formUrl, type List, type Space, type Workspace } from "@/lib/types";
 import Popover from "./Popover";
 import { useToast } from "./Toast";
 import { useWorkspace } from "./WorkspaceContext";
@@ -178,6 +178,32 @@ export default function Sidebar({
           ? `"${list.name}" agora é lista de conteúdo 📱`
           : `"${list.name}" voltou a ser lista comum`,
     );
+    notifyStructureChanged();
+  }
+
+  async function copyFormLink(token: string) {
+    try {
+      await navigator.clipboard.writeText(formUrl(token));
+      toast("Link do formulário copiado 📝");
+    } catch {
+      toast(`Link do formulário: ${formUrl(token)}`);
+    }
+  }
+
+  // Formulário de briefing: link público para quem não tem conta pedir demandas nesta lista
+  async function setListForm(list: List, on: boolean) {
+    const supabase = createClient();
+    if (on) {
+      const { data: token, error } = await supabase.rpc("enable_list_form", { p_list: list.id });
+      if (error || !token) return toast(`Não deu para ativar: ${error?.message ?? "tente de novo"}`);
+      setLists((prev) => prev.map((l) => (l.id === list.id ? { ...l, form_enabled: true, form_token: token as string } : l)));
+      await copyFormLink(token as string);
+    } else {
+      const { error } = await supabase.from("lists").update({ form_enabled: false }).eq("id", list.id);
+      if (error) return toast(`Não deu para desativar: ${error.message}`);
+      setLists((prev) => prev.map((l) => (l.id === list.id ? { ...l, form_enabled: false } : l)));
+      toast("Formulário desativado: o link parou de funcionar");
+    }
     notifyStructureChanged();
   }
 
@@ -403,6 +429,38 @@ export default function Sidebar({
                                     {label}
                                   </button>
                                 ))}
+                              {list.form_enabled && list.form_token ? (
+                                <>
+                                  <button
+                                    className={menuItem}
+                                    onClick={() => {
+                                      close();
+                                      void copyFormLink(list.form_token!);
+                                    }}
+                                  >
+                                    📝 Copiar link do briefing
+                                  </button>
+                                  <button
+                                    className={menuItem}
+                                    onClick={() => {
+                                      close();
+                                      void setListForm(list, false);
+                                    }}
+                                  >
+                                    🚫 Desativar formulário
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  className={menuItem}
+                                  onClick={() => {
+                                    close();
+                                    void setListForm(list, true);
+                                  }}
+                                >
+                                  📝 Ativar formulário de briefing
+                                </button>
+                              )}
                               <button
                                 className={menuItem}
                                 onClick={() => {

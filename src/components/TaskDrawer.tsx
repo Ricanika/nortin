@@ -156,7 +156,7 @@ export default function TaskDrawer({
         </div>
 
         {/* Dados, resultados e publicação rolam juntos; o chat fica sempre visível embaixo */}
-        <div className={`shrink-0 overflow-y-auto ${social || campaign ? "max-h-[62vh]" : ""}`}>
+        <div className={`shrink-0 overflow-y-auto ${social || campaign || task.source === "form" ? "max-h-[62vh]" : ""}`}>
         {/* Dados da tarefa */}
         <div className="space-y-4 border-b px-5 py-4">
           <input
@@ -205,6 +205,27 @@ export default function TaskDrawer({
             </div>
           </div>
         </div>
+
+        {/* Briefing: o que o solicitante escreveu no formulário (lista de conteúdo usa o texto como legenda) */}
+        {!social && (task.source === "form" || task.description?.trim()) && (
+          <div className="border-b px-5 py-3">
+            <div className="mb-1 flex flex-wrap items-baseline gap-x-2 text-sm font-semibold text-slate-700">
+              📝 Briefing
+              {task.requester_name && (
+                <span className="text-xs font-normal text-slate-500">
+                  pedido por <b>{task.requester_name}</b>
+                  {task.requester_email && (
+                    <>
+                      {" "}
+                      · <a href={`mailto:${task.requester_email}`} className="text-sky-700 hover:underline">{task.requester_email}</a>
+                    </>
+                  )}
+                </span>
+              )}
+            </div>
+            <p className="whitespace-pre-wrap break-words text-sm text-slate-700">{task.description || "—"}</p>
+          </div>
+        )}
 
         {campaign && (
           <div className="border-b px-5 py-3">

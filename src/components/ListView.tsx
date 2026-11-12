@@ -103,6 +103,11 @@ export default function ListView({
                         onClick={() => actions.open(task.id)}
                         className={`truncate text-left hover:text-violet-700 ${isDone ? "text-slate-400 line-through" : ""}`}
                       >
+                        {task.source === "form" && (
+                          <span className="mr-1" title={`Briefing de ${task.requester_name ?? "solicitante"}`}>
+                            📝
+                          </span>
+                        )}
                         {task.title}
                       </button>
                     </div>

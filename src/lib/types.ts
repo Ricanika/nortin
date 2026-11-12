@@ -39,6 +39,9 @@ export interface List {
   folder_url: string | null;
   /** "campaign": resultados Google/Meta; "content": posts publicados pelo GHL */
   kind: "tasks" | "campaign" | "content";
+  /** formulário público de briefing (link /f/<form_token>) */
+  form_enabled: boolean;
+  form_token: string | null;
 }
 
 export interface Status {
@@ -71,6 +74,10 @@ export interface Task {
   post_type: "post" | "reel" | "story";
   /** link de CTA: fim do texto (clicável no Facebook/LinkedIn/YouTube) e 1º comentário no Instagram */
   cta_url: string | null;
+  /** "form" = veio do formulário de briefing, com quem pediu */
+  source: "app" | "form";
+  requester_name: string | null;
+  requester_email: string | null;
   publish_at: string | null;
   /** user_ids dos responsáveis (vem de task_assignees) */
   assignees: string[];
@@ -115,3 +122,7 @@ export function positionBetween(prev?: number, next?: number): number {
   if (next === undefined) return prev + 1000;
   return (prev + next) / 2;
 }
+
+/** Link público do formulário de briefing da lista */
+export const formUrl = (token: string) =>
+  `${typeof window !== "undefined" ? window.location.origin : ""}/f/${token}`;
