@@ -40,7 +40,9 @@ export default function Popover({
     if (!open) return;
     const close = (e: Event) => {
       if (e.type === "keydown" && (e as KeyboardEvent).key !== "Escape") return;
-      if (e.type === "mousedown" && (panel.current?.contains(e.target as Node) || btn.current?.contains(e.target as Node))) return;
+      // Clique ou rolagem dentro do painel (ex.: campo com link longo rolando o texto) não fecha
+      const inside = panel.current?.contains(e.target as Node) || btn.current?.contains(e.target as Node);
+      if ((e.type === "mousedown" || e.type === "scroll") && inside) return;
       setOpen(false);
     };
     document.addEventListener("mousedown", close);

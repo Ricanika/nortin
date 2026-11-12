@@ -53,6 +53,7 @@ export default function FolderLink({
           <span className="text-xs font-normal opacity-70">· {folderService(shown)} ↗</span>
         </a>
       )}
+      {shown && <CopyButton url={shown} />}
       <Popover
         label={value ? `Trocar pasta da ${subject}` : `Vincular pasta à ${subject}`}
         width={320}
@@ -117,5 +118,41 @@ function FolderForm({
         )}
       </div>
     </form>
+  );
+}
+
+/** Copia o link da pasta; se o navegador bloquear, mostra o link selecionado para Ctrl+C. */
+function CopyButton({ url }: { url: string }) {
+  const [state, setState] = useState<"idle" | "ok" | "manual">("idle");
+  return (
+    <span className="inline-flex items-center gap-1">
+      <button
+        type="button"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(url);
+            setState("ok");
+            setTimeout(() => setState("idle"), 2000);
+          } catch {
+            setState("manual");
+          }
+        }}
+        className="rounded px-1.5 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+        title="Copiar link da pasta"
+      >
+        {state === "ok" ? "✓ Copiado" : "📋 Copiar link"}
+      </button>
+      {state === "manual" && (
+        <input
+          readOnly
+          autoFocus
+          value={url}
+          onFocus={(e) => e.currentTarget.select()}
+          onBlur={() => setState("idle")}
+          className="w-56 rounded border px-1.5 py-0.5 text-xs"
+          aria-label="Link da pasta (Ctrl+C para copiar)"
+        />
+      )}
+    </span>
   );
 }

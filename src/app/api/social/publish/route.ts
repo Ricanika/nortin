@@ -121,6 +121,8 @@ export async function POST(request: NextRequest) {
           summary: b.summary,
           media: b.media.map((m) => ({ url: m.url, type: m.type })),
           type: b.type,
+          // Sem isso o GHL comprime imagem e vídeo antes de mandar às redes (vídeo saía em baixa)
+          mediaOptimization: false,
           status: "scheduled",
           scheduleDate: new Date(base.getTime() + b.offsetMin * 60 * 1000).toISOString(),
           userId: cfg.userId,
