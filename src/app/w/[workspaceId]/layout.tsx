@@ -4,6 +4,7 @@ import Sidebar from "@/components/Sidebar";
 import { WorkspaceProvider } from "@/components/WorkspaceContext";
 import { ToastProvider } from "@/components/Toast";
 import { QuickAddProvider } from "@/components/QuickAdd";
+import Notifications from "@/components/Notifications";
 import type { Member, Role } from "@/lib/types";
 
 export default async function WorkspaceLayout({
@@ -42,6 +43,7 @@ export default async function WorkspaceLayout({
             <Sidebar workspaces={workspaces ?? []} userEmail={auth.user.email ?? ""} />
             <main className="flex min-w-0 flex-1 flex-col">{children}</main>
           </div>
+          <Notifications />
         </QuickAddProvider>
       </ToastProvider>
     </WorkspaceProvider>

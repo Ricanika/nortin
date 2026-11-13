@@ -38,5 +38,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // arquivos públicos (ícones, manifesto) abrem sem login: o aviso do Windows e a instalação usam eles
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|svg|ico|webmanifest)$).*)"],
 };

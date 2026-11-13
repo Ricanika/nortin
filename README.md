@@ -93,6 +93,9 @@ banco (RLS e triggers), não só na tela.
       ▸ abre o resultado por canal; análise rápida no topo, geral e por rede
 - [x] Formulário de briefing por lista (link público /f/…): nome, e-mail, demanda, descrição, deadline,
       prioridade (Urgente/Importante) e responsável; cria a tarefa na lista
+- [x] Avisos do Windows (com o app aberto): tarefa nova marcada para você e mensagem no chat das suas tarefas;
+      app instalável (manifest)
+- [ ] Avisos com o app fechado (Web Push com service worker)
 - [ ] Impressões automáticas lendo direto do Instagram/Facebook
 - [ ] Importar resultados automaticamente do Google Ads e do Meta Ads
 - [ ] Folders na sidebar, convite por link
