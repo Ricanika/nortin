@@ -20,6 +20,7 @@ import type { TaskActions } from "./ListScreen";
 import { parseQuick } from "@/lib/quickParse";
 import { AvatarStack, DueDate, NewTaskInput, PriorityFlag } from "./TaskBits";
 import { CompleteToggle, DuePicker } from "./InlineEditors";
+import PostCover, { useListKind } from "./PostCover";
 import { useWorkspace } from "./WorkspaceContext";
 
 type Columns = Record<string, string[]>; // statusId -> taskIds em ordem
@@ -237,19 +238,25 @@ function Card({
   dragging?: boolean;
 }) {
   const { members } = useWorkspace();
+  const kind = useListKind();
   return (
     <div
       className={`cursor-pointer rounded-md border bg-white p-3 text-sm shadow-sm hover:border-violet-300 ${
         dragging ? "rotate-2 shadow-lg" : ""
       }`}
     >
+      {kind === "content" && task.media?.length > 0 && (
+        <div className="-mx-1 -mt-1 mb-2">
+          <PostCover media={task.media} wide />
+        </div>
+      )}
       <div className="mb-2 flex items-start gap-2">
         {actions && (
           <span className="pt-px">
             <CompleteToggle done={done} onToggle={() => actions.toggleDone(task.id)} size={16} />
           </span>
         )}
-        <p className={`min-w-0 flex-1 break-words ${done ? "text-slate-400 line-through" : ""}`}>{task.title}</p>
+        <p className={`min-w-0 flex-1 break-words ${done && kind !== "content" ? "text-slate-400 line-through" : ""}`}>{task.title}</p>
       </div>
       <div className="flex items-center justify-between gap-2">
         <PriorityFlag priority={task.priority} />

@@ -175,7 +175,9 @@ export async function POST(request: NextRequest) {
       .update({
         publish_at: date.toISOString(),
         ghl_parent_id: createdIds[0] ?? null,
-        ghl_parent_ids: createdIds,
+        // Depois de publicado, cada rede aponta para o código interno do agendamento (createdPostIds),
+        // não para o "pai" devolvido no envio: guardamos os dois
+        ghl_parent_ids: [...new Set([...createdIds, ...createdPostIds])],
         due_date: date.toISOString().slice(0, 10),
         ...(scheduledStatus ? { status_id: scheduledStatus.id } : {}),
       })

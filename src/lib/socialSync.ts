@@ -49,9 +49,27 @@ export async function syncTask(db: SupabaseClient, taskId: string) {
   const parents = new Set([...(t.ghl_parent_ids ?? []), ...(t.ghl_parent_id ? [t.ghl_parent_id] : [])]);
   const at = t.publish_at ? new Date(t.publish_at) : new Date();
   const posts = await listPosts(token, locationId, new Date(at.getTime() - 864e5), new Date(at.getTime() + 3 * 864e5));
-  const mine = posts.filter((p) =>
-    parents.size ? parents.has(p.parentPostId ?? "") || parents.has(p._id) : p.summary === t.description,
-  );
+  let mine = posts.filter((p) => parents.has(p.parentPostId ?? "") || parents.has(p._id));
+
+  // Não achou pelos códigos (posts enviados antes de guardarmos os dois): procura pelas contas e pelo
+  // horário — publicados entre 2 min antes e 40 min depois do agendado (stories saem 1 min a cada um)
+  const accounts = new Set((channels as ChannelRow[]).map((c) => c.ghl_account_id));
+  if (!mine.some((p) => p.accountId)) {
+    const start = at.getTime() - 2 * 60 * 1000;
+    const end = at.getTime() + 40 * 60 * 1000;
+    const byTime = posts.filter((p) => {
+      const when = new Date(p.publishedAt ?? (p as GhlPost & { displayDate?: string }).displayDate ?? 0).getTime();
+      return p.accountId && accounts.has(p.accountId) && when >= start && when <= end;
+    });
+    if (byTime.length) {
+      mine = [...mine, ...byTime];
+      const found = [...new Set(byTime.map((p) => p.parentPostId).filter((x): x is string => Boolean(x)))];
+      await db
+        .from("tasks")
+        .update({ ghl_parent_ids: [...new Set([...parents, ...found])] })
+        .eq("id", taskId);
+    }
+  }
 
   const now = new Date();
   let updated = 0;

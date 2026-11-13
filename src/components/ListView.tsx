@@ -11,6 +11,7 @@ import { CampaignCells } from "./CampaignResults";
 import type { CampaignResult } from "@/lib/campaign";
 import type { SocialChannel } from "@/lib/social";
 import { ChannelRows, ContentCells } from "./ContentMetrics";
+import PostCover from "./PostCover";
 
 const COLS = "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_32px] min-w-[700px]";
 // Lista de campanha: + Plataformas, Impressões, Cliques, CPC, Gasto (larguras iguais às do CampaignCells)
@@ -101,8 +102,11 @@ export default function ListView({
                       <CompleteToggle done={isDone} color={status.color} onToggle={() => actions.toggleDone(task.id)} />
                       <button
                         onClick={() => actions.open(task.id)}
-                        className={`truncate text-left hover:text-violet-700 ${isDone ? "text-slate-400 line-through" : ""}`}
+                        className={`flex min-w-0 items-center gap-2 truncate text-left hover:text-violet-700 ${
+                          isDone && !social ? "text-slate-400 line-through" : ""
+                        }`}
                       >
+                        {social && <PostCover media={task.media} />}
                         {task.source === "form" && (
                           <span className="mr-1" title={`Briefing de ${task.requester_name ?? "solicitante"}`}>
                             📝

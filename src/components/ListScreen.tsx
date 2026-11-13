@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { formUrl, memberName, toTask, type List, type Status, type Task } from "@/lib/types";
@@ -12,6 +12,7 @@ import CalendarView from "./CalendarView";
 import FolderLink from "./FolderLink";
 import { CampaignSummary } from "./CampaignResults";
 import { ContentSummary } from "./ContentMetrics";
+import { ListKindContext } from "./PostCover";
 import { toResult, type CampaignResult } from "@/lib/campaign";
 import type { SocialChannel } from "@/lib/social";
 import { useToast } from "./Toast";
@@ -71,6 +72,7 @@ export default function ListScreen({ listId }: { listId: string }) {
       supabase.removeChannel(channel);
     };
   }, [isContent, listId, supabase, workspace.id]);
+
 
   const saveResult = useCallback(
     (r: CampaignResult) =>
@@ -231,6 +233,33 @@ export default function ListScreen({ listId }: { listId: string }) {
     };
   }, [listId, supabase, workspace.id]);
 
+  // Com a lista aberta, confere no GHL os posts cujo horário já passou: assim que publicam,
+  // vão para "Publicado" com link e números, sem esperar o robô diário
+  const lastSync = useRef(new Map<string, number>());
+  useEffect(() => {
+    if (!isContent) return;
+    const check = async () => {
+      const now = Date.now();
+      const due = tasks.filter((t) => {
+        const pending = channels.some((c) => c.task_id === t.id && c.status === "scheduled");
+        const passed = t.publish_at && new Date(t.publish_at).getTime() <= now;
+        const recent = now - (lastSync.current.get(t.id) ?? 0) < 4 * 60 * 1000;
+        return pending && passed && !recent;
+      });
+      for (const t of due.slice(0, 5)) {
+        lastSync.current.set(t.id, now);
+        await fetch("/api/social/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ taskId: t.id }),
+        }).catch(() => undefined);
+      }
+    };
+    void check();
+    const timer = setInterval(() => void check(), 5 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, [isContent, tasks, channels]);
+
   const actions: TaskActions = {
     async create(title, statusId, extra, assignees = []) {
       const last = tasks.filter((t) => t.status_id === statusId).sort(byPosition).at(-1);
@@ -358,6 +387,7 @@ export default function ListScreen({ listId }: { listId: string }) {
   const openTask = tasks.find((t) => t.id === openTaskId) ?? null;
 
   return (
+    <ListKindContext.Provider value={list?.kind ?? "tasks"}>
     <div className="flex h-full min-h-0 flex-col">
       <header className="border-b px-6 pt-4">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -525,5 +555,6 @@ export default function ListScreen({ listId }: { listId: string }) {
         />
       )}
     </div>
+    </ListKindContext.Provider>
   );
 }
