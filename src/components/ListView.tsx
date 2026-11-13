@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { parseQuick } from "@/lib/quickParse";
 import type { Status, Task } from "@/lib/types";
 import type { TaskActions } from "./ListScreen";
@@ -9,9 +9,24 @@ import { AssigneePicker, NewTaskInput } from "./TaskBits";
 import { useWorkspace } from "./WorkspaceContext";
 import { CampaignCells } from "./CampaignResults";
 import type { CampaignResult } from "@/lib/campaign";
-import type { SocialChannel } from "@/lib/social";
+import { contentTotals, type SocialChannel } from "@/lib/social";
+import { cpc, sumMetrics } from "@/lib/campaign";
+import { memberName } from "@/lib/types";
 import { ChannelRows, ContentCells } from "./ContentMetrics";
 import PostCover from "./PostCover";
+
+type SortKey =
+  | "name"
+  | "assignees"
+  | "priority"
+  | "due"
+  | "impressions"
+  | "likes"
+  | "engagement"
+  | "c_impressions"
+  | "c_clicks"
+  | "c_cpc"
+  | "c_spend";
 
 const COLS = "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_32px] min-w-[700px]";
 // Lista de campanha: + Plataformas, Impressões, Cliques, CPC, Gasto (larguras iguais às do CampaignCells)
@@ -46,10 +61,88 @@ export default function ListView({
   const { members } = useWorkspace();
   const cols = campaign ? COLS_CAMPAIGN : social ? COLS_CONTENT : COLS;
 
+  // Ordenação pelos títulos das colunas: ▲ crescente → ▼ decrescente → ordem manual.
+  // Vale dentro de cada grupo de status e fica lembrada por lista neste navegador.
+  const listId = statuses[0]?.list_id ?? "";
+  const sortKey = `hyak:sort:${listId}`;
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 } | null>(null);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(sortKey);
+      setSort(saved ? JSON.parse(saved) : null);
+    } catch {
+      setSort(null);
+    }
+  }, [sortKey]);
+  const cycleSort = (key: SortKey) => {
+    const next = !sort || sort.key !== key ? { key, dir: 1 as const } : sort.dir === 1 ? { key, dir: -1 as const } : null;
+    setSort(next);
+    try {
+      if (next) localStorage.setItem(sortKey, JSON.stringify(next));
+      else localStorage.removeItem(sortKey);
+    } catch {}
+  };
+
+  // Valor de cada tarefa na coluna escolhida; vazio sempre vai para o fim
+  const valueOf = (t: Task, key: SortKey): string | number | null => {
+    switch (key) {
+      case "name":
+        return t.title.toLocaleLowerCase("pt-BR");
+      case "assignees": {
+        const names = t.assignees.map((id) => memberName(members.find((m) => m.user_id === id))).sort();
+        return names[0]?.toLocaleLowerCase("pt-BR") ?? null;
+      }
+      case "priority":
+        return t.priority === "urgent" ? 0 : t.priority === "high" ? 1 : null;
+      case "due":
+        return t.due_date;
+      case "impressions":
+      case "likes":
+      case "engagement": {
+        const ch = (social ?? []).filter((c) => c.task_id === t.id && c.status === "published");
+        if (!ch.length) return null;
+        const tot = contentTotals(ch);
+        return key === "engagement" ? tot.engagement : key === "likes" ? tot.likes : tot.impressions || null;
+      }
+      case "c_impressions":
+      case "c_clicks":
+      case "c_cpc":
+      case "c_spend": {
+        const rs = (campaign?.results ?? []).filter((r) => r.task_id === t.id);
+        if (!rs.length) return null;
+        const m = sumMetrics(rs);
+        return key === "c_impressions" ? m.impressions : key === "c_clicks" ? m.clicks : key === "c_spend" ? m.spend : cpc(m);
+      }
+    }
+  };
+  const sorted = (list: Task[]) => {
+    if (!sort) return list;
+    return [...list].sort((a, b) => {
+      const va = valueOf(a, sort.key);
+      const vb = valueOf(b, sort.key);
+      if (va === null && vb === null) return 0;
+      if (va === null) return 1;
+      if (vb === null) return -1;
+      const cmp = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb), "pt-BR");
+      return cmp * sort.dir;
+    });
+  };
+  const head = (key: SortKey, label: string, cls = "") => (
+    <button
+      type="button"
+      onClick={() => cycleSort(key)}
+      title={`Ordenar por ${label}`}
+      className={`flex items-center gap-1 hover:text-slate-700 ${cls} ${sort?.key === key ? "font-semibold text-violet-700" : ""}`}
+    >
+      {label}
+      <span className="w-2 text-[9px]">{sort?.key === key ? (sort.dir === 1 ? "▲" : "▼") : ""}</span>
+    </button>
+  );
+
   return (
     <div className="space-y-6 p-4 pb-28 sm:p-6">
       {statuses.map((status) => {
-        const group = tasks.filter((t) => t.status_id === status.id);
+        const group = sorted(tasks.filter((t) => t.status_id === status.id));
         const isDone = status.type === "done" || status.type === "closed";
         return (
           <section key={status.id}>
@@ -67,28 +160,26 @@ export default function ListView({
             {!collapsed[status.id] && (
               <div className="overflow-x-auto sm:ml-5">
                 <div className={`grid ${cols} border-b px-2 pb-1 text-xs text-slate-400`}>
-                  <span className="pl-7">Nome</span>
-                  <span>Responsáveis</span>
+                  {head("name", "Nome", "pl-7")}
+                  {head("assignees", "Responsáveis")}
                   <span>Status</span>
-                  <span>Prioridade</span>
-                  <span>Prazo</span>
+                  {head("priority", "Prioridade")}
+                  {head("due", "Prazo")}
                   {social && (
                     <>
                       <span className="pl-4">Redes</span>
-                      <span className="pr-2 text-right">Impressões</span>
-                      <span className="pr-2 text-right">Curtidas</span>
-                      <span className="pr-2 text-right" title="(curtidas + comentários + compartilhamentos) ÷ impressões">
-                        Engajam.
-                      </span>
+                      {head("impressions", "Impressões", "justify-end pr-2")}
+                      {head("likes", "Curtidas", "justify-end pr-2")}
+                      {head("engagement", "Engajam.", "justify-end pr-2")}
                     </>
                   )}
                   {campaign && (
                     <>
                       <span className="pl-1">Mídia</span>
-                      <span className="pr-2 text-right">Impressões</span>
-                      <span className="pr-2 text-right">Cliques</span>
-                      <span className="pr-2 text-right">CPC</span>
-                      <span className="pr-2 text-right">Gasto</span>
+                      {head("c_impressions", "Impressões", "justify-end pr-2")}
+                      {head("c_clicks", "Cliques", "justify-end pr-2")}
+                      {head("c_cpc", "CPC", "justify-end pr-2")}
+                      {head("c_spend", "Gasto", "justify-end pr-2")}
                     </>
                   )}
                   <span />
