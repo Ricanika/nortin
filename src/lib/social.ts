@@ -13,7 +13,7 @@ export interface SocialChannel {
   likes: number;
   comments: number;
   shares: number;
-  /** digitado por canal (o GHL não entrega impressões) */
+  /** ALCANCE digitado por canal (nos stories, as views). A coluna do banco se chama impressions. */
   impressions: number;
   metrics_at: string | null;
 }
@@ -54,11 +54,14 @@ export function nextSyncAt(publishedAt: Date, now = new Date()): Date {
 export const interactions = (c: Pick<SocialChannel, "likes" | "comments" | "shares">) => c.likes + c.comments + c.shares;
 
 export interface ContentTotals {
+  /** alcance (coluna impressions) */
   impressions: number;
+  /** engajamento = curtidas + comentários + compartilhamentos */
+  interactions: number;
   likes: number;
   comments: number;
   shares: number;
-  /** interações ÷ impressões; null quando não há impressões */
+  /** taxa de engajamento = engajamento ÷ alcance; null quando não há alcance */
   engagement: number | null;
 }
 
@@ -72,6 +75,7 @@ export function contentTotals(channels: SocialChannel[]): ContentTotals {
     likes: sum("likes"),
     comments: sum("comments"),
     shares: sum("shares"),
+    interactions: sum("likes") + sum("comments") + sum("shares"),
     engagement: imp > 0 ? withImp.reduce((n, c) => n + interactions(c), 0) / imp : null,
   };
 }

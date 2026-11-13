@@ -32,9 +32,10 @@ const COLS = "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_32px] min-w-[70
 // Lista de campanha: + Plataformas, Impressões, Cliques, CPC, Gasto (larguras iguais às do CampaignCells)
 const COLS_CAMPAIGN =
   "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_52px_84px_72px_78px_96px_32px] min-w-[1130px]";
-// Lista de conteúdo: + Redes, Impressões, Curtidas, Engajamento (soma dos canais; ▸ abre por canal)
+// Lista de conteúdo: + Redes, Alcance, Engajamento (curtidas + comentários + compartilhamentos) e
+// Taxa % (engajamento ÷ alcance), somando os canais; ▸ abre por canal
 const COLS_CONTENT =
-  "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_150px_90px_80px_90px_32px] min-w-[1080px]";
+  "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_150px_90px_104px_80px_32px] min-w-[1100px]";
 
 export default function ListView({
   statuses,
@@ -102,7 +103,8 @@ export default function ListView({
         const ch = (social ?? []).filter((c) => c.task_id === t.id && c.status === "published");
         if (!ch.length) return null;
         const tot = contentTotals(ch);
-        return key === "engagement" ? tot.engagement : key === "likes" ? tot.likes : tot.impressions || null;
+        // likes = coluna Engajamento (curtidas + comentários + compartilhamentos); engagement = Taxa %
+        return key === "engagement" ? tot.engagement : key === "likes" ? tot.interactions : tot.impressions || null;
       }
       case "c_impressions":
       case "c_clicks":
@@ -168,9 +170,9 @@ export default function ListView({
                   {social && (
                     <>
                       <span className="pl-4">Redes</span>
-                      {head("impressions", "Impressões", "justify-end pr-2")}
-                      {head("likes", "Curtidas", "justify-end pr-2")}
-                      {head("engagement", "Engajam.", "justify-end pr-2")}
+                      {head("impressions", "Alcance", "justify-end pr-2")}
+                      {head("likes", "Engajamento", "justify-end pr-2")}
+                      {head("engagement", "Taxa %", "justify-end pr-2")}
                     </>
                   )}
                   {campaign && (

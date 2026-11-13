@@ -215,8 +215,8 @@ export default function SocialPost({
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
           <span>
-            Enviado ao GHL{task.publish_at ? ` · publicação ${fmtDateTime(task.publish_at)}` : ""} · 👁 {fmtNum(totals.impressions)} · ❤{" "}
-            {totals.likes} · 💬 {totals.comments} · ↗ {totals.shares} · engaj. <EngagementValue value={totals.engagement} />
+            Enviado ao GHL{task.publish_at ? ` · publicação ${fmtDateTime(task.publish_at)}` : ""} · alcance {fmtNum(totals.impressions)} ·
+            engajamento {fmtNum(totals.interactions)} · taxa <EngagementValue value={totals.engagement} />
           </span>
           <button onClick={syncNow} disabled={syncing} className="rounded border px-2 py-1 font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50">
             {syncing ? "Atualizando…" : "🔄 Atualizar agora"}
@@ -236,9 +236,9 @@ export default function SocialPost({
               {c.status === "published" && (
                 <span className="flex w-full items-center gap-2 pl-8 text-xs tabular-nums text-slate-500">
                   <span className="flex items-center gap-1">
-                    👁 <span className="w-20"><ImpressionsInput channel={c} /></span>
+                    alcance{task.post_type === "story" ? " (views)" : ""} <span className="w-20"><ImpressionsInput channel={c} /></span>
                   </span>
-                  ❤ {c.likes} · 💬 {c.comments} · ↗ {c.shares} · engaj.{" "}
+                  engajamento {fmtNum(interactions(c))} (❤ {c.likes} · 💬 {c.comments} · ↗ {c.shares}) · taxa{" "}
                   <EngagementValue value={c.impressions > 0 ? interactions(c) / c.impressions : null} />
                 </span>
               )}

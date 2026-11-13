@@ -11,14 +11,14 @@ const STATUS_LABEL: Record<SocialChannel["status"], { label: string; cls: string
   failed: { label: "Erro", cls: "bg-red-50 text-red-700" },
 };
 
-/** Engajamento colorido: verde acima de 5%, âmbar de 2% a 5%, cinza abaixo. */
+/** Taxa de engajamento colorida: verde acima de 5%, âmbar de 2% a 5%, cinza abaixo. */
 export function EngagementValue({ value }: { value: number | null }) {
   const cls = value === null ? "text-slate-300" : value >= 0.05 ? "text-emerald-600" : value >= 0.02 ? "text-amber-600" : "text-slate-500";
   return <span className={`font-medium tabular-nums ${cls}`}>{fmtPct(value)}</span>;
 }
 
 /**
- * 4 células da linha do post (Redes, Impressões, Curtidas, Engajamento) com a soma dos canais.
+ * 4 células da linha do post (Redes, Alcance, Engajamento, Taxa %) com a soma dos canais.
  * Clicar nas redes abre/fecha as linhas por canal.
  */
 export function ContentCells({
@@ -56,13 +56,13 @@ export function ContentCells({
         ))}
       </button>
       <span className="pr-2 text-right text-xs tabular-nums">{published && t.impressions > 0 ? fmtNum(t.impressions) : "—"}</span>
-      <span className="pr-2 text-right text-xs tabular-nums">{published ? fmtNum(t.likes) : "—"}</span>
+      <span className="pr-2 text-right text-xs tabular-nums">{published ? fmtNum(t.interactions) : "—"}</span>
       <span className="pr-2 text-right text-xs">{published ? <EngagementValue value={t.engagement} /> : "—"}</span>
     </>
   );
 }
 
-/** Impressões digitadas por canal; salva ao sair do campo. */
+/** Alcance digitado por canal (nos stories, as views); salva ao sair do campo. */
 export function ImpressionsInput({ channel }: { channel: SocialChannel }) {
   const [value, setValue] = useState(channel.impressions ? String(channel.impressions) : "");
   const [error, setError] = useState(false);
@@ -84,8 +84,8 @@ export function ImpressionsInput({ channel }: { channel: SocialChannel }) {
       onChange={(e) => setValue(e.target.value)}
       onBlur={() => void save()}
       onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-      aria-label={`Impressões no ${networkOf(channel.platform).label}`}
-      title="O GHL não entrega impressões: digite o número da rede"
+      aria-label={`Alcance no ${networkOf(channel.platform).label}`}
+      title="Digite o alcance da rede (nos stories, as views). O GHL não entrega esse número."
       className={`w-full rounded border px-1.5 py-0.5 text-right text-xs tabular-nums outline-none focus:border-violet-500 ${
         error ? "border-red-400" : "border-slate-200"
       }`}
@@ -94,8 +94,8 @@ export function ImpressionsInput({ channel }: { channel: SocialChannel }) {
 }
 
 /**
- * Linhas por canal abaixo do post ("subtarefas" de cada rede): status, link, impressões (digitadas),
- * curtidas e engajamento do canal. Ocupam a mesma grade da lista.
+ * Linhas por canal abaixo do post ("subtarefas" de cada rede): status, link, alcance (digitado),
+ * engajamento e taxa do canal. Ocupam a mesma grade da lista.
  */
 export function ChannelRows({ channels, cols }: { channels: SocialChannel[]; cols: string }) {
   return (
@@ -116,15 +116,15 @@ export function ChannelRows({ channels, cols }: { channels: SocialChannel[]; col
                 </a>
               )}
               {c.status === "published" && (
-                <span className="shrink-0 tabular-nums text-slate-400">
-                  💬 {c.comments} · ↗ {c.shares}
+                <span className="shrink-0 tabular-nums text-slate-400" title="curtidas · comentários · compartilhamentos">
+                  ❤ {c.likes} · 💬 {c.comments} · ↗ {c.shares}
                 </span>
               )}
               {c.status === "failed" && c.error && <span className="truncate text-red-600">{c.error}</span>}
             </div>
             <span />
             <span className="pr-2">{c.status === "published" ? <ImpressionsInput channel={c} /> : <span className="block text-right">—</span>}</span>
-            <span className="pr-2 text-right tabular-nums">{c.status === "published" ? fmtNum(c.likes) : "—"}</span>
+            <span className="pr-2 text-right tabular-nums">{c.status === "published" ? fmtNum(interactions(c)) : "—"}</span>
             <span className="pr-2 text-right">{c.status === "published" ? <EngagementValue value={eng} /> : "—"}</span>
             <span />
           </div>
@@ -149,9 +149,9 @@ export function ContentSummary({ channels }: { channels: SocialChannel[] }) {
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
           ["Posts publicados", fmtNum(posts)],
-          ["Impressões", fmtNum(total.impressions)],
-          ["Curtidas", fmtNum(total.likes)],
-          ["Engajamento", fmtPct(total.engagement)],
+          ["Alcance", fmtNum(total.impressions)],
+          ["Engajamento", fmtNum(total.interactions)],
+          ["Taxa de engajamento", fmtPct(total.engagement)],
         ].map(([label, value]) => (
           <div key={label} className="rounded-lg border px-3 py-2">
             <div className="text-[10px] uppercase tracking-wide text-slate-400">{label}</div>
@@ -165,7 +165,7 @@ export function ContentSummary({ channels }: { channels: SocialChannel[] }) {
             <div key={platform} className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs ${i === 0 && t.engagement !== null ? "border-emerald-300 bg-emerald-50/50" : ""}`}>
               <NetworkBadge platform={platform} />
               <span className="tabular-nums text-slate-600">
-                {n} {n === 1 ? "post" : "posts"} · {fmtNum(t.impressions)} imp. · ❤ {fmtNum(t.likes)} ·{" "}
+                {n} {n === 1 ? "post" : "posts"} · alcance {fmtNum(t.impressions)} · engaj. {fmtNum(t.interactions)} ·{" "}
               </span>
               <EngagementValue value={t.engagement} />
               {i === 0 && t.engagement !== null && byNetwork.length > 1 && <span className="font-medium text-emerald-700">melhor</span>}
@@ -175,8 +175,8 @@ export function ContentSummary({ channels }: { channels: SocialChannel[] }) {
       )}
       {missingImp > 0 && (
         <p className="text-[11px] text-amber-700">
-          {missingImp} {missingImp === 1 ? "canal publicado está" : "canais publicados estão"} sem impressões: abra o ▸ do post e digite, para o
-          engajamento ficar certo.
+          {missingImp} {missingImp === 1 ? "canal publicado está" : "canais publicados estão"} sem alcance: abra o ▸ do post e digite (nos stories, as views), para a taxa de
+          engajamento ficar certa.
         </p>
       )}
     </div>
