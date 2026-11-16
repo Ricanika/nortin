@@ -16,8 +16,16 @@ async function graph<T>(path: string, params: Record<string, string>, token: str
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   url.searchParams.set("access_token", token);
   const res = await fetch(url, { cache: "no-store" });
-  const json = (await res.json().catch(() => ({}))) as { error?: { message?: string } } & T;
-  if (!res.ok || json.error) throw new MetaError(json.error?.message ?? `Meta ${res.status}`);
+  const json = (await res.json().catch(() => ({}))) as {
+    error?: { message?: string; type?: string; code?: number; error_subcode?: number; error_user_msg?: string };
+  } & T;
+  if (!res.ok || json.error) {
+    const e = json.error;
+    const detail = [e?.type, e?.code && `código ${e.code}`, e?.error_subcode && `subcódigo ${e.error_subcode}`, e?.error_user_msg]
+      .filter(Boolean)
+      .join(" · ");
+    throw new MetaError(`${e?.message ?? `Meta ${res.status}`}${detail ? ` (${detail})` : ""} [HTTP ${res.status}]`);
+  }
   return json;
 }
 
