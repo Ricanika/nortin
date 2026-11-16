@@ -11,6 +11,7 @@ const VARS = [
   "GHL_TOKEN_TEAK",
   "GHL_TOKEN_ROGA",
   "GEMINI_API_KEY",
+  "META_TOKEN",
 ];
 
 export async function GET() {

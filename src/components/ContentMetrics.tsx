@@ -85,7 +85,7 @@ export function ImpressionsInput({ channel }: { channel: SocialChannel }) {
       onBlur={() => void save()}
       onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
       aria-label={`Alcance no ${networkOf(channel.platform).label}`}
-      title="Digite o alcance da rede (nos stories, as views). O GHL não entrega esse número."
+      title="Instagram e Facebook preenchem sozinhos pela Meta. Nas outras redes, digite o alcance (nos stories, as views)."
       className={`w-full rounded border px-1.5 py-0.5 text-right text-xs tabular-nums outline-none focus:border-violet-500 ${
         error ? "border-red-400" : "border-slate-200"
       }`}
@@ -175,8 +175,7 @@ export function ContentSummary({ channels }: { channels: SocialChannel[] }) {
       )}
       {missingImp > 0 && (
         <p className="text-[11px] text-amber-700">
-          {missingImp} {missingImp === 1 ? "canal publicado está" : "canais publicados estão"} sem alcance: abra o ▸ do post e digite (nos stories, as views), para a taxa de
-          engajamento ficar certa.
+          {missingImp} {missingImp === 1 ? "canal publicado está" : "canais publicados estão"} sem alcance ainda. Instagram e Facebook vêm sozinhos da Meta (até 1 hora); nas outras redes, abra o ▸ do post e digite.
         </p>
       )}
     </div>

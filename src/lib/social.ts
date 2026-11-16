@@ -41,11 +41,13 @@ export const networkOf = (platform: string) =>
   NETWORKS[platform] ?? { label: platform, short: platform.slice(0, 2).toUpperCase(), color: "#64748b" };
 
 /**
- * Próxima busca de métricas: todo dia na 1ª semana após publicar,
+ * Próxima busca de métricas: de hora em hora no 1º dia, todo dia na 1ª semana após publicar,
  * toda semana até completar 30 dias, depois 1 vez por mês.
  */
 export function nextSyncAt(publishedAt: Date, now = new Date()): Date {
   const ageDays = (now.getTime() - publishedAt.getTime()) / 864e5;
+  // 1º dia: de hora em hora (stories saem do ar em 24h e a Meta só mostra as views enquanto estão no ar)
+  if (ageDays < 1) return new Date(now.getTime() + 60 * 60 * 1000);
   const step = ageDays < 7 ? 1 : ageDays < 30 ? 7 : 30;
   return new Date(now.getTime() + step * 864e5);
 }

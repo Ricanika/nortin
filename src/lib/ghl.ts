@@ -66,6 +66,9 @@ export interface GhlAccount {
 export interface GhlPost {
   _id: string;
   platform: string;
+  /** código do post na própria rede (Instagram/Facebook), para ler o alcance na Meta */
+  postId?: string;
+  type?: string;
   status: string;
   accountId?: string;
   parentPostId?: string;

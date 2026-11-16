@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { errorText, ghlConfig, listPosts, type GhlPost, type GhlSpace } from "./ghl";
 import { nextSyncAt } from "./social";
+import { facebookReach, instagramReach, metaToken, pageIdFromAccount } from "./meta";
 
 interface TaskRow {
   id: string;
@@ -93,6 +94,24 @@ export async function syncTask(db: SupabaseClient, taskId: string) {
       { likes: 0, comments: 0, shares: 0 },
     );
     const failed = ofChannel.find((p) => ghlStatus(p.status) === "failed");
+
+    // Alcance automático pela Meta (Instagram e Facebook), somando os posts do canal (ex.: vários stories)
+    let reach: number | null = null;
+    const token = metaToken();
+    if (token && status === "published" && (c.platform === "instagram" || c.platform === "facebook")) {
+      const pageId = c.platform === "facebook" ? pageIdFromAccount(c.ghl_account_id) : null;
+      for (const p of ofChannel) {
+        if (!p.postId) continue;
+        const isStory = p.type === "story";
+        const v =
+          c.platform === "instagram"
+            ? await instagramReach(p.postId, isStory, token).catch(() => null)
+            : pageId
+              ? await facebookReach(pageId, p.postId, isStory, token).catch(() => null)
+              : null;
+        if (typeof v === "number") reach = (reach ?? 0) + v;
+      }
+    }
     await db
       .from("social_channels")
       .update({
@@ -102,6 +121,8 @@ export async function syncTask(db: SupabaseClient, taskId: string) {
         error: failed ? errorText(failed.error) ?? "Falha ao publicar" : null,
         published_at: publishedAt?.toISOString() ?? null,
         ...(status === "published" ? { ...m, metrics_at: now.toISOString() } : {}),
+        // só sobrescreve quando a Meta respondeu; senão mantém o que foi digitado
+        ...(reach !== null ? { impressions: reach } : {}),
         next_sync_at: (status === "published" && publishedAt
           ? nextSyncAt(publishedAt, now)
           : new Date(now.getTime() + 60 * 60 * 1000)
@@ -112,7 +133,12 @@ export async function syncTask(db: SupabaseClient, taskId: string) {
     if (status === "published") {
       await db
         .from("social_metrics")
-        .insert({ task_id: c.task_id, platform: c.platform, ...m, impressions: (c as ChannelRow & { impressions?: number }).impressions ?? null });
+        .insert({
+          task_id: c.task_id,
+          platform: c.platform,
+          ...m,
+          impressions: reach ?? (c as ChannelRow & { impressions?: number }).impressions ?? null,
+        });
     }
     updated++;
   }

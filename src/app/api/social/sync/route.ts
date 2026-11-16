@@ -19,13 +19,18 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Robô diário (Vercel Cron): atualiza os posts cujo next_sync_at já chegou
+// Robôs: diário (Vercel Cron, CRON_SECRET) e de hora em hora (Supabase pg_cron, chave em app_secrets).
+// Atualizam os posts cujo next_sync_at já chegou.
 export async function GET(request: NextRequest) {
+  const auth = request.headers.get("authorization") ?? "";
   const secret = process.env.CRON_SECRET;
-  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-  }
   const db = createAdminClient();
+  let ok = Boolean(secret) && auth === `Bearer ${secret}`;
+  if (!ok && auth.startsWith("Bearer ") && auth.length > 20) {
+    const { data } = await db.from("app_secrets").select("value").eq("name", "hourly_sync").maybeSingle();
+    ok = Boolean(data?.value) && auth === `Bearer ${data!.value}`;
+  }
+  if (!ok) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   const { data: due } = await db
     .from("social_channels")
     .select("task_id")
