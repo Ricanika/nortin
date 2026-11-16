@@ -119,7 +119,8 @@ export async function POST(request: NextRequest) {
         body: {
           accountIds: b.accounts.map((a) => a.id),
           summary: b.summary,
-          media: b.media.map((m) => ({ url: m.url, type: m.type })),
+          // thumbnail = capa escolhida para o vídeo (Reels)
+          media: b.media.map((m) => ({ url: m.url, type: m.type, ...(m.thumbnail ? { thumbnail: m.thumbnail } : {}) })),
           type: b.type,
           // Sem isso o GHL comprime imagem e vídeo antes de mandar às redes (vídeo saía em baixa)
           mediaOptimization: false,
@@ -178,7 +179,9 @@ export async function POST(request: NextRequest) {
         // Depois de publicado, cada rede aponta para o código interno do agendamento (createdPostIds),
         // não para o "pai" devolvido no envio: guardamos os dois
         ghl_parent_ids: [...new Set([...createdIds, ...createdPostIds])],
-        due_date: date.toISOString().slice(0, 10),
+        // prazo = dia e hora da publicação, no horário de Brasília
+        due_date: brt(date).slice(0, 10),
+        due_time: brt(date).slice(11, 16),
         ...(scheduledStatus ? { status_id: scheduledStatus.id } : {}),
       })
       .eq("id", taskId);
@@ -191,6 +194,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: err.status });
   }
 }
+
+/** "AAAA-MM-DD HH:MM" no horário de Brasília */
+const brt = (d: Date) =>
+  new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }).format(d);
 
 async function undoCreated(token: string, locationId: string, ids: string[]) {
   if (!token || !ids.length) return;

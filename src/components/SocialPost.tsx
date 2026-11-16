@@ -127,7 +127,41 @@ export default function SocialPost({
     if (fileRef.current) fileRef.current.value = "";
   }
 
+  /** Capa do vídeo (Reels): uma imagem que vai junto com o vídeo para o GHL. */
+  async function uploadCover(video: MediaItem, file: File | undefined) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("A capa precisa ser uma imagem (JPG ou PNG).");
+      return;
+    }
+    setError(null);
+    setUploading(1);
+    const safe = file.name.normalize("NFD").replace(/[^\w.-]+/g, "-").toLowerCase();
+    const path = `${workspace.id}/${task.id}/capa-${crypto.randomUUID()}-${safe}`;
+    const { error: upErr } = await supabase.storage.from("social-media").upload(path, file, { contentType: file.type });
+    setUploading(0);
+    if (upErr) {
+      setError(`Não deu para enviar a capa: ${upErr.message}`);
+      return;
+    }
+    const { data } = supabase.storage.from("social-media").getPublicUrl(path);
+    const old = video.thumbnail;
+    await actions.update(task.id, { media: media.map((m) => (m.url === video.url ? { ...m, thumbnail: data.publicUrl } : m)) });
+    if (old) await removeFile(old);
+  }
+
+  async function removeCover(video: MediaItem) {
+    await actions.update(task.id, { media: media.map((m) => (m.url === video.url ? { url: m.url, type: m.type, name: m.name } : m)) });
+    if (video.thumbnail) await removeFile(video.thumbnail);
+  }
+
+  async function removeFile(url: string) {
+    const path = url.split("/social-media/")[1];
+    if (path) await supabase.storage.from("social-media").remove([decodeURIComponent(path)]);
+  }
+
   async function removeMedia(item: MediaItem) {
+    if (item.thumbnail) await removeFile(item.thumbnail);
     await actions.update(task.id, { media: media.filter((m) => m.url !== item.url) });
     const path = item.url.split("/social-media/")[1];
     if (path) await supabase.storage.from("social-media").remove([decodeURIComponent(path)]);
@@ -324,9 +358,13 @@ export default function SocialPost({
         </div>
         <div className="flex flex-wrap gap-2">
           {media.map((m) => (
-            <div key={m.url} className="group relative h-20 w-20 overflow-hidden rounded-lg border bg-slate-100">
-              {m.type.startsWith("video/") ? (
-                <video src={m.url} className="h-full w-full object-cover" muted />
+            <div key={m.url} className="flex flex-col items-center gap-0.5">
+            <div className="group relative h-20 w-20 overflow-hidden rounded-lg border bg-slate-100">
+              {m.type.startsWith("video/") && m.thumbnail ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={m.thumbnail} alt="capa do vídeo" className="h-full w-full object-cover" />
+              ) : m.type.startsWith("video/") ? (
+                <video src={`${m.url}#t=0.5`} preload="metadata" className="h-full w-full object-cover" muted />
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={m.url} alt={m.name ?? "mídia"} className="h-full w-full object-cover" />
@@ -339,6 +377,20 @@ export default function SocialPost({
               >
                 ✕
               </button>
+            </div>
+            {m.type.startsWith("video/") && (
+              <span className="flex items-center gap-1 text-[10px]">
+                <label className="cursor-pointer text-violet-700 hover:underline" title="Imagem de capa do vídeo (Reels)">
+                  🖼 {m.thumbnail ? "trocar capa" : "capa"}
+                  <input type="file" accept="image/*" hidden onChange={(e) => void uploadCover(m, e.target.files?.[0])} />
+                </label>
+                {m.thumbnail && (
+                  <button onClick={() => void removeCover(m)} className="text-slate-400 hover:text-red-600" title="Tirar capa">
+                    ✕
+                  </button>
+                )}
+              </span>
+            )}
             </div>
           ))}
           <button

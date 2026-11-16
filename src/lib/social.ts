@@ -22,6 +22,8 @@ export interface MediaItem {
   url: string;
   type: string; // mime, ex.: image/png, video/mp4
   name?: string;
+  /** capa do vídeo (Reels): imagem enviada pelo usuário */
+  thumbnail?: string;
 }
 
 export const NETWORKS: Record<string, { label: string; short: string; color: string }> = {

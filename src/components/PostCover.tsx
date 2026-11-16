@@ -25,7 +25,10 @@ export default function PostCover({ media, size = 36, wide = false }: { media: T
   const isVideo = first.type.startsWith("video/");
   return (
     <span className="relative block shrink-0 overflow-hidden rounded-md bg-slate-100 ring-1 ring-black/5" style={box}>
-      {isVideo ? (
+      {isVideo && first.thumbnail ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={first.thumbnail} alt="" loading="lazy" className="h-full w-full object-cover" />
+      ) : isVideo ? (
         // #t=0.5: o navegador mostra um quadro do começo do vídeo como capa
         <video src={`${first.url}#t=0.5`} preload="metadata" muted playsInline className="h-full w-full object-cover" />
       ) : (

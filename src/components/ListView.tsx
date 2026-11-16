@@ -96,7 +96,7 @@ export default function ListView({
       case "priority":
         return t.priority === "urgent" ? 0 : t.priority === "high" ? 1 : null;
       case "due":
-        return t.due_date;
+        return t.due_date ? `${t.due_date} ${t.due_time ?? "99"}` : null;
       case "impressions":
       case "likes":
       case "engagement": {
@@ -225,6 +225,8 @@ export default function ListView({
                       value={task.due_date}
                       done={isDone}
                       onChange={(due_date) => actions.update(task.id, { due_date })}
+                      time={task.due_time}
+                      onTimeChange={(due_time) => actions.update(task.id, { due_time })}
                       recurrence={task.recurrence}
                       onRecurrenceChange={(recurrence) => actions.update(task.id, { recurrence })}
                     />

@@ -63,6 +63,8 @@ export interface Task {
   priority: Priority | null;
   start_date: string | null;
   due_date: string | null;
+  /** horário do prazo, "HH:MM:SS" (opcional) */
+  due_time: string | null;
   position: number;
   created_at: string;
   updated_at: string;
@@ -70,7 +72,7 @@ export interface Task {
   recurrence: Recurrence | null;
   folder_url: string | null;
   /** Lista de conteúdo: mídia do post, tipo e horário de publicação no GHL */
-  media: { url: string; type: string; name?: string }[];
+  media: { url: string; type: string; name?: string; thumbnail?: string }[];
   post_type: "post" | "reel" | "story";
   /** link de CTA: fim do texto (clicável no Facebook/LinkedIn/YouTube) e 1º comentário no Instagram */
   cta_url: string | null;

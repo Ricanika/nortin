@@ -58,14 +58,21 @@ export function DuePicker({
   done = false,
   recurrence = null,
   onRecurrenceChange,
+  time = null,
+  onTimeChange,
 }: {
   value: string | null;
   onChange: (date: string | null) => void;
   done?: boolean;
   recurrence?: Recurrence | null;
   onRecurrenceChange?: (r: Recurrence | null) => void;
+  /** horário do prazo ("HH:MM" ou "HH:MM:SS"); só aparece quando a tela passa onTimeChange */
+  time?: string | null;
+  onTimeChange?: (t: string | null) => void;
 }) {
-  const late = !!value && !done && value < todayISO();
+  const hhmm = time ? time.slice(0, 5) : null;
+  const nowHHMM = new Date().toTimeString().slice(0, 5);
+  const late = !!value && !done && (value < todayISO() || (value === todayISO() && !!hhmm && hhmm < nowHHMM));
   const isToday = value === todayISO();
   const rec = RECURRENCES.find((r) => r.value === recurrence);
   return (
@@ -78,7 +85,7 @@ export function DuePicker({
       trigger={
         <>
           {rec && <span className="mr-0.5 text-violet-600">🔁</span>}
-          {value ? friendlyDate(value) : "📅 Prazo"}
+          {value ? `${friendlyDate(value)}${hhmm ? ` ${hhmm}` : ""}` : "📅 Prazo"}
         </>
       }
     >
@@ -114,6 +121,47 @@ export function DuePicker({
             />
           </div>
 
+          {onTimeChange && (
+            <div className="border-t px-3 py-2">
+              <label className="mb-1 block text-xs font-medium text-slate-500" htmlFor="due-time">
+                🕒 Horário <span className="font-normal text-slate-400">· opcional</span>
+              </label>
+              <div className="flex gap-1">
+                <input
+                  id="due-time"
+                  type="time"
+                  defaultValue={hhmm ?? ""}
+                  onBlur={(e) => {
+                    const t = e.target.value || null;
+                    if (t === hhmm) return;
+                    // Horário sem data: o prazo vira hoje
+                    if (t && !value) onChange(todayISO());
+                    onTimeChange(t);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.currentTarget.blur();
+                      close();
+                    }
+                  }}
+                  className="min-w-0 flex-1 rounded border px-2 py-1 text-sm"
+                />
+                {hhmm && (
+                  <button
+                    className="rounded border px-2 text-xs text-slate-500 hover:bg-slate-50"
+                    onClick={() => {
+                      onTimeChange(null);
+                      close();
+                    }}
+                    title="Tirar horário"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {onRecurrenceChange && (
             <div className="border-t px-3 py-2">
               <label className="mb-1 block text-xs font-medium text-slate-500" htmlFor="due-recurrence">
@@ -146,6 +194,7 @@ export function DuePicker({
               className={`${itemClass} border-t text-slate-500`}
               onClick={() => {
                 onChange(null);
+                if (hhmm) onTimeChange?.(null);
                 if (recurrence) onRecurrenceChange?.(null);
                 close();
               }}

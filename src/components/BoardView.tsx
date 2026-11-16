@@ -266,6 +266,8 @@ function Card({
               value={task.due_date}
               done={done}
               onChange={(due_date) => actions.update(task.id, { due_date })}
+              time={task.due_time}
+              onTimeChange={(due_time) => actions.update(task.id, { due_time })}
               recurrence={task.recurrence}
               onRecurrenceChange={(recurrence) => actions.update(task.id, { recurrence })}
             />
