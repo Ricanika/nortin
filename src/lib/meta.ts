@@ -52,6 +52,20 @@ async function firstMetric(id: string, metrics: string[], token: string): Promis
   return null;
 }
 
+/** Diagnóstico: resposta da Meta para cada métrica de um post (valor ou erro). */
+export async function probeMetrics(id: string, metrics: string[], token: string) {
+  const out: Record<string, unknown> = {};
+  for (const metric of metrics) {
+    try {
+      const r = await graph<InsightsResponse>(`${id}/insights`, { metric }, token);
+      out[metric] = valueOf(r, metric);
+    } catch (e) {
+      out[metric] = `erro: ${(e as Error).message}`;
+    }
+  }
+  return out;
+}
+
 /** Instagram: alcance de post/Reels; nos stories, as views (o que combinamos como "alcance"). */
 export function instagramReach(mediaId: string, isStory: boolean, token: string) {
   return firstMetric(mediaId, isStory ? ["views", "reach", "impressions"] : ["reach", "views"], token);

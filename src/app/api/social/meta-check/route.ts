@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { metaDiagnostics, metaToken, MetaError } from "@/lib/meta";
+import { probeMetrics, metaDiagnostics, metaToken, MetaError } from "@/lib/meta";
 
 // Verificação da chave da Meta (só dono/administradores): permissões, páginas visíveis e um teste
 // de alcance no último post publicado no Instagram. Nunca mostra a chave.
-export async function GET() {
+export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return NextResponse.json({ error: "Entre no app primeiro." }, { status: 401 });
@@ -13,6 +13,12 @@ export async function GET() {
 
   const token = metaToken();
   if (!token) return NextResponse.json({ META_TOKEN: "❌ faltando na Vercel (ou falta o Redeploy)" });
+
+  // ?media=<código do post no Instagram>: mostra o que a Meta responde para esse post
+  const media = request.nextUrl.searchParams.get("media");
+  if (media) {
+    return NextResponse.json({ media, resposta: await probeMetrics(media, ["reach", "views", "impressions", "plays"], token) });
+  }
 
   try {
     const diag = await metaDiagnostics(token);

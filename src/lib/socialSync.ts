@@ -34,7 +34,7 @@ const ghlStatus = (s: string) => (s === "published" ? "published" : s === "faile
 export async function syncTask(db: SupabaseClient, taskId: string) {
   const { data: task } = await db
     .from("tasks")
-    .select("id, list_id, status_id, description, publish_at, ghl_parent_id, ghl_parent_ids, lists(space_id, spaces(ghl_location_id, ghl_token_env, ghl_user_id))")
+    .select("id, list_id, status_id, description, post_type, publish_at, ghl_parent_id, ghl_parent_ids, lists(space_id, spaces(ghl_location_id, ghl_token_env, ghl_user_id))")
     .eq("id", taskId)
     .single();
   if (!task) return { updated: 0 };
@@ -102,7 +102,8 @@ export async function syncTask(db: SupabaseClient, taskId: string) {
       const pageId = c.platform === "facebook" ? pageIdFromAccount(c.ghl_account_id) : null;
       for (const p of ofChannel) {
         if (!p.postId) continue;
-        const isStory = p.type === "story";
+        // Story: o alcance é o número de views (pelo tipo no GHL ou pelo tipo escolhido no post)
+        const isStory = p.type === "story" || task.post_type === "story";
         const v =
           c.platform === "instagram"
             ? await instagramReach(p.postId, isStory, token).catch(() => null)
