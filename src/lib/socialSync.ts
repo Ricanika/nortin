@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { errorText, ghlConfig, listPosts, type GhlPost, type GhlSpace } from "./ghl";
 import { nextSyncAt } from "./social";
-import { facebookReach, instagramReach, metaToken, pageIdFromAccount } from "./meta";
+import { facebookReach, instagramMediaByLink, instagramReach, metaToken, pageIdFromAccount } from "./meta";
 
 interface TaskRow {
   id: string;
@@ -104,12 +104,18 @@ export async function syncTask(db: SupabaseClient, taskId: string) {
         if (!p.postId) continue;
         // Story: o alcance é o número de views (pelo tipo no GHL ou pelo tipo escolhido no post)
         const isStory = p.type === "story" || task.post_type === "story";
-        const v =
+        let v =
           c.platform === "instagram"
             ? await instagramReach(p.postId, isStory, token).catch(() => null)
             : pageId
               ? await facebookReach(pageId, p.postId, isStory, token).catch(() => null)
               : null;
+        // Instagram: o código do GHL às vezes não bate com o da Meta; procura o post pelo link
+        if (v === null && c.platform === "instagram" && p.previewLink) {
+          const igUserId = c.ghl_account_id.split("_").pop() ?? "";
+          const realId = /^\d+$/.test(igUserId) ? await instagramMediaByLink(igUserId, p.previewLink, token).catch(() => null) : null;
+          if (realId && realId !== p.postId) v = await instagramReach(realId, isStory, token).catch(() => null);
+        }
         if (typeof v === "number") reach = (reach ?? 0) + v;
       }
     }

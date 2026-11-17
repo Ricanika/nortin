@@ -71,6 +71,30 @@ export function instagramReach(mediaId: string, isStory: boolean, token: string)
   return firstMetric(mediaId, isStory ? ["views", "reach", "impressions"] : ["reach", "views"], token);
 }
 
+/** Código do link do Instagram (".../reel/DfnGrxfDC52/" → "DfnGrxfDC52"). */
+const shortcode = (link: string) => link.match(/instagram\.com\/(?:[^/]+\/)?(?:p|reel|reels|tv)\/([^/?#]+)/)?.[1] ?? null;
+
+/**
+ * Plano B: quando o código do post que o GHL guardou não existe na Meta, procura o post
+ * na lista da própria conta do Instagram pelo link e devolve o código certo.
+ */
+export async function instagramMediaByLink(igUserId: string, link: string, token: string): Promise<string | null> {
+  const code = shortcode(link);
+  if (!code) return null;
+  let path = `${igUserId}/media`;
+  let params: Record<string, string> = { fields: "id,permalink", limit: "50" };
+  for (let page = 0; page < 4; page++) {
+    const r = await graph<{ data?: { id: string; permalink?: string }[]; paging?: { cursors?: { after?: string }; next?: string } }>(path, params, token);
+    const hit = r.data?.find((m) => m.permalink && shortcode(m.permalink) === code);
+    if (hit) return hit.id;
+    const after = r.paging?.cursors?.after;
+    if (!after || !r.paging?.next) return null;
+    params = { ...params, after };
+    path = `${igUserId}/media`;
+  }
+  return null;
+}
+
 const pageTokens = new Map<string, string>();
 
 /** Facebook: insights de post exigem a chave da Página, obtida com a chave do usuário do sistema. */
