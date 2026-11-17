@@ -1,10 +1,7 @@
-import { Suspense } from "react";
-import MyTasks from "@/components/MyTasks";
+import { redirect } from "next/navigation";
 
-export default function MyTasksPage() {
-  return (
-    <Suspense>
-      <MyTasks />
-    </Suspense>
-  );
+// "Minhas tarefas" foi juntado ao "Meu dia": quem tinha o link salvo cai lá.
+export default async function MyTasksPage({ params }: { params: Promise<{ workspaceId: string }> }) {
+  const { workspaceId } = await params;
+  redirect(`/w/${workspaceId}`);
 }

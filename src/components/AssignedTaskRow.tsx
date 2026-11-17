@@ -15,7 +15,7 @@ export default function AssignedTaskRow({
   row: AssignedRow;
   href: string;
   onToggle: () => void;
-  onUpdate: (patch: { due_date?: string | null; priority?: Priority | null; recurrence?: Recurrence | null }) => void;
+  onUpdate: (patch: { due_date?: string | null; due_time?: string | null; priority?: Priority | null; recurrence?: Recurrence | null }) => void;
 }) {
   const done = rowDone(row);
   return (
@@ -44,6 +44,8 @@ export default function AssignedTaskRow({
         value={row.due_date}
         done={done}
         onChange={(due_date) => onUpdate({ due_date })}
+        time={row.due_time}
+        onTimeChange={(due_time) => onUpdate({ due_time })}
         recurrence={row.recurrence}
         onRecurrenceChange={(recurrence) => onUpdate({ recurrence })}
       />

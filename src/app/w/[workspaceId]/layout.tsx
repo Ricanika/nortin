@@ -5,6 +5,7 @@ import { WorkspaceProvider } from "@/components/WorkspaceContext";
 import { ToastProvider } from "@/components/Toast";
 import { QuickAddProvider } from "@/components/QuickAdd";
 import Notifications from "@/components/Notifications";
+import InstallApp from "@/components/InstallApp";
 import type { Member, Role } from "@/lib/types";
 
 export default async function WorkspaceLayout({
@@ -44,6 +45,7 @@ export default async function WorkspaceLayout({
             <main className="flex min-w-0 flex-1 flex-col">{children}</main>
           </div>
           <Notifications />
+          <InstallApp />
         </QuickAddProvider>
       </ToastProvider>
     </WorkspaceProvider>

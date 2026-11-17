@@ -1,22 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { addDays, todayISO, ymd } from "@/lib/dates";
+import { useRouter } from "next/navigation";
+import { todayISO } from "@/lib/dates";
 import { memberName } from "@/lib/types";
 import { rowDone, useAssignedTasks, type AssignedRow } from "@/lib/useAssignedTasks";
 import AssignedTaskRow from "./AssignedTaskRow";
+import CalendarView from "./CalendarView";
 import { useQuickAdd } from "./QuickAdd";
 import { useWorkspace } from "./WorkspaceContext";
 
-type SectionKey = "late" | "today" | "week" | "later" | "nodate";
+type SectionKey = "late" | "today" | "next" | "nodate" | "done";
 
 const SECTIONS: { key: SectionKey; title: string; tone: string; tile: string }[] = [
   { key: "late", title: "Atrasadas", tone: "text-red-600", tile: "bg-red-50 text-red-700 ring-red-200" },
   { key: "today", title: "Hoje", tone: "text-amber-600", tile: "bg-amber-50 text-amber-700 ring-amber-200" },
-  { key: "week", title: "Próximos 7 dias", tone: "text-violet-700", tile: "bg-violet-50 text-violet-700 ring-violet-200" },
-  { key: "later", title: "Mais adiante", tone: "text-slate-700", tile: "" },
+  { key: "next", title: "Próximas", tone: "text-violet-700", tile: "bg-violet-50 text-violet-700 ring-violet-200" },
   { key: "nodate", title: "Sem prazo", tone: "text-slate-500", tile: "" },
+  { key: "done", title: "Concluídas", tone: "text-emerald-700", tile: "" },
 ];
+
+/** Ordem por dia e hora; sem prazo vai para o fim. */
+const dueKey = (r: AssignedRow) => (r.due_date ? `${r.due_date} ${r.due_time ?? "99"}` : "9999");
 
 function greeting() {
   const h = new Date().getHours();
@@ -27,21 +32,32 @@ export default function MyDay() {
   const { workspace, members, me } = useWorkspace();
   const openQuickAdd = useQuickAdd();
   const { rows, error, update, toggleDone } = useAssignedTasks(workspace.id, me);
-  const [showLater, setShowLater] = useState(false);
+  const router = useRouter();
+  const [mode, setMode] = useState<"list" | "cal">("list");
+  const [showDone, setShowDone] = useState(false);
+  const [showNoDate, setShowNoDate] = useState(false);
   // Concluídas nesta sessão continuam visíveis (riscadas) até recarregar, para dar a sensação de progresso.
   const [doneHere, setDoneHere] = useState<Set<string>>(new Set());
 
   const today = todayISO();
-  const week = ymd(addDays(new Date(), 7));
   const meMember = members.find((m) => m.user_id === me);
   const firstName = memberName(meMember).split(" ")[0];
 
   const all = rows ?? [];
-  const visible = all.filter((r) => !rowDone(r) || doneHere.has(r.id));
+  const visible = all.filter((r) => showDone || !rowDone(r) || doneHere.has(r.id));
   const bucket = (r: AssignedRow): SectionKey =>
-    !r.due_date ? "nodate" : r.due_date < today ? "late" : r.due_date === today ? "today" : r.due_date <= week ? "week" : "later";
+    showDone && rowDone(r) && !doneHere.has(r.id)
+      ? "done"
+      : !r.due_date
+        ? "nodate"
+        : r.due_date < today
+          ? "late"
+          : r.due_date === today
+            ? "today"
+            : "next";
   const groups = Object.fromEntries(SECTIONS.map((s) => [s.key, [] as AssignedRow[]])) as Record<SectionKey, AssignedRow[]>;
-  for (const r of [...visible].sort((a, b) => (a.due_date ?? "9999") < (b.due_date ?? "9999") ? -1 : 1)) groups[bucket(r)].push(r);
+  for (const r of [...visible].sort((a, b) => (dueKey(a) < dueKey(b) ? -1 : 1))) groups[bucket(r)].push(r);
+  const taskHref = (r: AssignedRow) => `/w/${workspace.id}/l/${r.list_id}?t=${r.parent_task_id ?? r.id}`;
 
   const openCount = (k: SectionKey) => groups[k].filter((r) => !rowDone(r)).length;
   const todayTotal = all.filter((r) => r.due_date === today).length;
@@ -111,9 +127,52 @@ export default function MyDay() {
           </div>
         )}
 
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <div className="flex overflow-hidden rounded-md border">
+            {(["list", "cal"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`px-3 py-1 ${mode === m ? "bg-violet-600 text-white" : "bg-white hover:bg-slate-50"}`}
+              >
+                {m === "list" ? "☰ Lista" : "▣ Calendário"}
+              </button>
+            ))}
+          </div>
+          {mode === "list" && (
+            <label className="flex items-center gap-1.5 text-slate-600">
+              <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} />
+              Mostrar concluídas
+            </label>
+          )}
+        </div>
+
         {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-        {nothingPending && (
+        {mode === "cal" && (
+          <div className="overflow-hidden rounded-xl border">
+            <CalendarView
+              items={all.map((r) => ({
+                id: r.id,
+                title: r.parent_task_id ? `↳ ${r.title}` : r.title,
+                due_date: r.due_date,
+                color: r.statuses?.color ?? "#94a3b8",
+                done: rowDone(r),
+                priority: r.priority,
+                assignees: [],
+                subtitle: `${r.lists?.spaces?.name ?? ""} / ${r.lists?.name ?? ""}`,
+              }))}
+              members={members}
+              onOpen={(id) => {
+                const r = all.find((x) => x.id === id);
+                if (r) router.push(taskHref(r));
+              }}
+              onMove={(id, date) => void update(id, { due_date: date })}
+            />
+          </div>
+        )}
+
+        {mode === "list" && nothingPending && (
           <div className="rounded-xl border border-dashed px-6 py-10 text-center">
             <div className="text-4xl">🎉</div>
             <p className="mt-2 font-semibold text-slate-700">Tudo em dia!</p>
@@ -121,16 +180,16 @@ export default function MyDay() {
           </div>
         )}
 
-        {SECTIONS.map((s) => {
+        {mode === "list" && SECTIONS.map((s) => {
           const list = groups[s.key];
           if (list.length === 0) return null;
-          const collapsible = s.key === "later" || s.key === "nodate";
-          const open = !collapsible || showLater;
+          const collapsible = s.key === "nodate";
+          const open = !collapsible || showNoDate;
           return (
             <section key={s.key} id={`sec-${s.key}`} className="scroll-mt-4">
               <button
                 disabled={!collapsible}
-                onClick={() => setShowLater(!showLater)}
+                onClick={() => setShowNoDate(!showNoDate)}
                 className={`mb-1 flex items-center gap-2 text-sm font-semibold ${s.tone}`}
               >
                 {collapsible && <span className="w-3 text-slate-400">{open ? "▾" : "▸"}</span>}
@@ -142,7 +201,7 @@ export default function MyDay() {
                   <AssignedTaskRow
                     key={r.id}
                     row={r}
-                    href={`/w/${workspace.id}/l/${r.list_id}?t=${r.parent_task_id ?? r.id}`}
+                    href={taskHref(r)}
                     onToggle={() => toggle(r)}
                     onUpdate={(patch) => void update(r.id, patch)}
                   />

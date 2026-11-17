@@ -11,6 +11,7 @@ export interface AssignedRow {
   title: string;
   priority: Priority | null;
   due_date: string | null;
+  due_time: string | null;
   list_id: string;
   parent_task_id: string | null;
   status_id: string | null;
@@ -42,7 +43,7 @@ export function useAssignedTasks(workspaceId: string, person: string) {
       supabase
         .from("tasks")
         .select(
-          "id, title, priority, due_date, list_id, parent_task_id, status_id, updated_at, recurrence, task_assignees!inner(user_id), statuses(name, color, type), lists(name, archived_at, spaces(name, color, archived_at))",
+          "id, title, priority, due_date, due_time, list_id, parent_task_id, status_id, updated_at, recurrence, task_assignees!inner(user_id), statuses(name, color, type), lists(name, archived_at, spaces(name, color, archived_at))",
         )
         .eq("workspace_id", workspaceId)
         .eq("task_assignees.user_id", person),
@@ -76,7 +77,7 @@ export function useAssignedTasks(workspaceId: string, person: string) {
   const patchLocal = (id: string, patch: Partial<AssignedRow>) =>
     setRows((prev) => prev?.map((r) => (r.id === id ? { ...r, ...patch } : r)) ?? prev);
 
-  async function update(id: string, patch: { due_date?: string | null; priority?: Priority | null; recurrence?: Recurrence | null }) {
+  async function update(id: string, patch: { due_date?: string | null; due_time?: string | null; priority?: Priority | null; recurrence?: Recurrence | null }) {
     patchLocal(id, patch);
     const { error } = await supabase.from("tasks").update(patch).eq("id", id);
     if (error) {
