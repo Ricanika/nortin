@@ -9,7 +9,7 @@ import { AssigneePicker, NewTaskInput } from "./TaskBits";
 import { useWorkspace } from "./WorkspaceContext";
 import { CampaignCells } from "./CampaignResults";
 import type { CampaignResult } from "@/lib/campaign";
-import { contentTotals, type SocialChannel } from "@/lib/social";
+import { contentTotals, fmtNum, fmtPct, type SocialChannel } from "@/lib/social";
 import { cpc, sumMetrics } from "@/lib/campaign";
 import { memberName } from "@/lib/types";
 import { ChannelRows, ContentCells } from "./ContentMetrics";
@@ -141,6 +141,16 @@ export default function ListView({
     </button>
   );
 
+  // Conteúdo publicado: separa Posts/Reels dos Stories, cada bloco com o próprio total
+  const subgroups = (list: Task[], done: boolean): [string | null, Task[]][] => {
+    if (!social || !done) return [[null, list]];
+    const out: [string | null, Task[]][] = [
+      ["Posts e Reels", list.filter((t) => t.post_type !== "story")],
+      ["Stories", list.filter((t) => t.post_type === "story")],
+    ];
+    return out.filter(([, l]) => l.length > 0);
+  };
+
   return (
     <div className="space-y-6 p-4 pb-28 sm:p-6">
       {statuses.map((status) => {
@@ -186,7 +196,12 @@ export default function ListView({
                   )}
                   <span />
                 </div>
-                {group.map((task) => (
+                {subgroups(group, isDone).map(([label, list]) => (
+                  <Fragment key={label ?? "all"}>
+                  {label && (
+                    <SubgroupHeader label={label} channels={(social ?? []).filter((c) => list.some((t) => t.id === c.task_id))} count={list.length} />
+                  )}
+                  {list.map((task) => (
                   <Fragment key={task.id}>
                   <div
                     className={`group grid ${cols} items-center border-b px-2 py-1.5 text-sm hover:bg-slate-50`}
@@ -258,6 +273,8 @@ export default function ListView({
                     <ChannelRows channels={social.filter((c) => c.task_id === task.id)} cols={cols} />
                   )}
                   </Fragment>
+                  ))}
+                  </Fragment>
                 ))}
                 <NewTaskInput
                   className="block w-full px-2 py-1.5"
@@ -276,3 +293,18 @@ export default function ListView({
   );
 }
 
+/** Título de cada bloco (Posts e Reels / Stories) com a soma do que já foi publicado. */
+function SubgroupHeader({ label, channels, count }: { label: string; channels: SocialChannel[]; count: number }) {
+  const t = contentTotals(channels.filter((c) => c.status === "published"));
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-b bg-slate-50 px-2 py-1.5 text-xs">
+      <span className="font-semibold text-slate-700">
+        {label === "Stories" ? "⏱" : "🖼"} {label}
+      </span>
+      <span className="text-slate-400">{count}</span>
+      <span className="tabular-nums text-slate-500">
+        alcance {fmtNum(t.impressions)} · engaj. {fmtNum(t.interactions)} · taxa {fmtPct(t.engagement)}
+      </span>
+    </div>
+  );
+}

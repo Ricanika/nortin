@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { instagramMediaByLink, probeMetrics, metaDiagnostics, metaToken, MetaError } from "@/lib/meta";
+import { instagramMediaByLink, liveStories, probeMetrics, metaDiagnostics, metaToken, MetaError } from "@/lib/meta";
 
 // Verificação da chave da Meta (só dono/administradores): permissões, páginas visíveis e um teste
 // de alcance no último post publicado no Instagram. Nunca mostra a chave.
@@ -18,6 +18,10 @@ export async function GET(request: NextRequest) {
   const media = request.nextUrl.searchParams.get("media");
   const link = request.nextUrl.searchParams.get("link");
   const account = request.nextUrl.searchParams.get("ig");
+  if (account && request.nextUrl.searchParams.get("stories")) {
+    const r = await liveStories(account, token).catch((e) => `erro: ${(e as Error).message}`);
+    return NextResponse.json({ stories_no_ar: Array.isArray(r) && !r.length ? "nenhum story no ar agora nessa conta" : r });
+  }
   if (link && account) {
     const found = await instagramMediaByLink(account, link, token).catch((e) => `erro: ${(e as Error).message}`);
     return NextResponse.json({

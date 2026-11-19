@@ -66,6 +66,20 @@ export async function probeMetrics(id: string, metrics: string[], token: string)
   return out;
 }
 
+/** Stories no ar agora numa conta do Instagram, com as views de cada um (teste). */
+export async function liveStories(igUserId: string, token: string) {
+  const r = await graph<{ data?: { id: string; timestamp?: string; permalink?: string }[] }>(
+    `${igUserId}/stories`,
+    { fields: "id,timestamp,permalink" },
+    token,
+  );
+  const out = [];
+  for (const st of r.data ?? []) {
+    out.push({ id: st.id, publicado: st.timestamp, ...(await probeMetrics(st.id, ["views", "reach"], token)) });
+  }
+  return out;
+}
+
 /** Instagram: alcance de post/Reels; nos stories, as views (o que combinamos como "alcance"). */
 export function instagramReach(mediaId: string, isStory: boolean, token: string) {
   return firstMetric(mediaId, isStory ? ["views", "reach", "impressions"] : ["reach", "views"], token);
