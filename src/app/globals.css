@@ -10,3 +10,12 @@ body {
 body[data-drawer-open] .quick-fab {
   display: none;
 }
+
+/* Celular: campos com letra menor que 16px fazem o iPhone dar zoom ao tocar */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea:not([data-big]),
+  select {
+    font-size: 16px !important;
+  }
+}

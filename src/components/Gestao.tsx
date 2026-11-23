@@ -367,8 +367,8 @@ function TaskTable({
 }: RowProps & { tasks: WsTask[]; allSelected: boolean; onSelectAll: () => void; empty: string; quickDue?: boolean }) {
   if (tasks.length === 0) return <p className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-slate-500">{empty}</p>;
   return (
-    <div className="overflow-x-auto">
-      <div className={`grid ${quickDue ? COLS_QUICK : COLS} items-center gap-2 border-b px-2 pb-1.5 text-xs text-slate-400`}>
+    <div className="md:overflow-x-auto">
+      <div className={`hidden md:grid ${quickDue ? COLS_QUICK : COLS} items-center gap-2 border-b px-2 pb-1.5 text-xs text-slate-400`}>
         <input type="checkbox" checked={allSelected} onChange={onSelectAll} aria-label="Selecionar todas" className="h-4 w-4 accent-violet-600" />
         <span className="pl-7">Tarefa</span>
         <span>Space / Lista</span>
@@ -399,9 +399,51 @@ function TaskRow({
 }: RowProps & { t: WsTask; quickDue?: boolean }) {
   const done = wsDone(t);
   const base = new Date();
+  const href = `/w/${workspaceId}/l/${t.list_id}?t=${t.parent_task_id ?? t.id}`;
+  const listStatuses = statuses.filter((s) => s.list_id === t.list_id).sort((a, b) => a.position - b.position);
   return (
+    <>
+    {/* Celular: cartão */}
+    <div className={`flex items-start gap-3 border-b px-1 py-2.5 md:hidden ${selected.has(t.id) ? "bg-violet-50/60" : ""}`}>
+      <input
+        type="checkbox"
+        checked={selected.has(t.id)}
+        onChange={() => onSelect(t.id)}
+        aria-label={`Selecionar ${t.title}`}
+        className="mt-1 h-4 w-4 shrink-0 accent-violet-600"
+      />
+      <div className="pt-0.5">
+        <CompleteToggle done={done} color={t.status?.color} onToggle={() => onToggle(t.id)} size={22} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <Link href={href} className={`line-clamp-2 text-[15px] leading-snug ${done ? "text-slate-400 line-through" : "text-slate-800"}`}>
+          {t.parent_task_id && <span className="mr-1 text-xs text-slate-400">↳</span>}
+          {t.title}
+        </Link>
+        <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
+          <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: t.list?.space?.color ?? "#94a3b8" }} />
+          <span className="truncate">
+            {t.list?.space?.name} / {t.list?.name}
+          </span>
+        </div>
+        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+          <span className="max-w-[9rem]">
+            <StatusPicker statuses={listStatuses} value={t.status_id} onChange={(sid) => onStatus(t.id, sid)} />
+          </span>
+          <PriorityPicker value={t.priority} onChange={(priority) => onUpdate(t.id, { priority })} />
+          <DuePicker
+            value={t.due_date}
+            done={done}
+            onChange={(due_date) => onUpdate(t.id, { due_date })}
+            recurrence={t.recurrence}
+            onRecurrenceChange={(recurrence) => onUpdate(t.id, { recurrence })}
+          />
+          <AssigneePicker value={t.assignees} members={members} onToggle={(uid, on) => onAssign(t.id, uid, on)} />
+        </div>
+      </div>
+    </div>
     <div
-      className={`grid ${quickDue ? COLS_QUICK : COLS} items-center gap-2 border-b px-2 py-1.5 text-sm hover:bg-slate-50 ${
+      className={`hidden md:grid ${quickDue ? COLS_QUICK : COLS} items-center gap-2 border-b px-2 py-1.5 text-sm hover:bg-slate-50 ${
         selected.has(t.id) ? "bg-violet-50/60" : ""
       }`}
     >
@@ -462,6 +504,7 @@ function TaskRow({
         />
       )}
     </div>
+    </>
   );
 }
 

@@ -134,6 +134,42 @@ export function ChannelRows({ channels, cols }: { channels: SocialChannel[]; col
   );
 }
 
+/** Canais do post no celular: um bloco por rede, sem colunas. */
+export function MobileChannelRows({ channels }: { channels: SocialChannel[] }) {
+  return (
+    <div className="space-y-1 bg-slate-50 px-3 py-2">
+      {channels.map((c) => {
+        const s = STATUS_LABEL[c.status];
+        const eng = c.impressions > 0 ? interactions(c) / c.impressions : null;
+        return (
+          <div key={c.platform} className="rounded-lg border bg-white px-2.5 py-2 text-xs">
+            <div className="flex items-center gap-2">
+              <NetworkBadge platform={c.platform} />
+              <span className="font-medium text-slate-700">{networkOf(c.platform).label}</span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${s.cls}`}>{s.label}</span>
+              {c.link && (
+                <a href={c.link} target="_blank" rel="noopener noreferrer" className="ml-auto text-sky-700">
+                  abrir ↗
+                </a>
+              )}
+            </div>
+            {c.status === "published" && (
+              <div className="mt-1.5 flex items-center gap-3 tabular-nums text-slate-500">
+                <span className="flex items-center gap-1">
+                  alcance <span className="w-20"><ImpressionsInput channel={c} /></span>
+                </span>
+                <span>engaj. {fmtNum(interactions(c))}</span>
+                <EngagementValue value={eng} />
+              </div>
+            )}
+            {c.status === "failed" && c.error && <p className="mt-1 text-red-600">{c.error}</p>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /** Análise rápida no topo da lista: geral e por rede, só com o que já foi publicado. */
 export function ContentSummary({ channels }: { channels: SocialChannel[] }) {
   const published = channels.filter((c) => c.status === "published");

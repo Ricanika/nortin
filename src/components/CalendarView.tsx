@@ -151,7 +151,29 @@ export default function CalendarView({
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-x-auto">
+      {/* Celular: agenda do mês, só os dias com tarefa */}
+      <div className="space-y-3 md:hidden">
+        {days
+          .filter((d) => d.getMonth() === cursor.m && (byDay.get(ymd(d))?.length ?? 0) > 0)
+          .map((d) => {
+            const key = ymd(d);
+            const label = d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
+            return (
+              <div key={key}>
+                <div className={`mb-1 text-xs font-semibold uppercase ${key === today ? "text-violet-700" : key < today ? "text-slate-400" : "text-slate-600"}`}>
+                  {key === today ? "Hoje · " : ""}
+                  {label}
+                </div>
+                <div className="space-y-1">{(byDay.get(key) ?? []).map(chip)}</div>
+              </div>
+            );
+          })}
+        {!days.some((d) => d.getMonth() === cursor.m && (byDay.get(ymd(d))?.length ?? 0) > 0) && (
+          <p className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-slate-500">Nenhuma tarefa com prazo neste mês.</p>
+        )}
+      </div>
+
+      <div className="hidden min-h-0 flex-1 overflow-x-auto md:block">
         <div className="grid min-w-[700px] grid-cols-7 border-l border-t">
           {WEEKDAYS.map((w) => (
             <div key={w} className="border-b border-r bg-slate-50 px-2 py-1 text-xs font-medium uppercase tracking-wide text-slate-500">

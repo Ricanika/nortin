@@ -35,6 +35,9 @@ export default function Sidebar({
   const [draft, setDraft] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [openCounts, setOpenCounts] = useState<Record<string, number>>({});
+  // Celular: o menu vira uma gaveta, aberta pelo ☰ da barra do topo
+  const [mobileOpen, setMobileOpen] = useState(false);
+  useEffect(() => setMobileOpen(false), [pathname]);
 
   // Contador ao lado de cada lista: tarefas em aberto (sem subtarefas e sem concluídas)
   useEffect(() => {
@@ -250,8 +253,34 @@ export default function Sidebar({
   };
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r bg-slate-50">
-      <div className="border-b p-3">
+    <>
+      {/* Barra do topo, só no celular */}
+      <div className="fixed inset-x-0 top-0 z-30 flex h-12 items-center gap-2 border-b bg-white/95 px-2 backdrop-blur md:hidden">
+        <button
+          onClick={() => setMobileOpen(true)}
+          aria-label="Abrir menu"
+          className="flex h-10 w-10 items-center justify-center rounded-lg text-xl text-slate-700 active:bg-slate-100"
+        >
+          ☰
+        </button>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icon-192.png" alt="" className="h-6 w-6 rounded" />
+        <span className="truncate text-sm font-semibold text-slate-800">{workspace.name}</span>
+      </div>
+      {mobileOpen && <div className="fixed inset-0 z-40 bg-black/30 md:hidden" onClick={() => setMobileOpen(false)} />}
+    <aside
+      className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] shrink-0 flex-col border-r bg-slate-50 shadow-xl transition-transform duration-200 md:static md:z-auto md:w-64 md:translate-x-0 md:shadow-none ${
+        mobileOpen ? "translate-x-0" : "-translate-x-full"
+      }`}
+    >
+      <div className="flex items-center gap-1 border-b p-3">
+        <button
+          onClick={() => setMobileOpen(false)}
+          aria-label="Fechar menu"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg text-slate-500 active:bg-slate-200 md:hidden"
+        >
+          ✕
+        </button>
         <select
           value={workspace.id}
           onChange={(e) => router.push(`/w/${e.target.value}`)}
@@ -276,7 +305,7 @@ export default function Sidebar({
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
+              className={`flex items-center gap-2 rounded-md px-2 py-2.5 text-sm md:py-1.5 ${
                 pathname === item.href ? "bg-violet-100 font-medium text-violet-700" : "hover:bg-slate-200"
               }`}
             >
@@ -369,7 +398,7 @@ export default function Sidebar({
                           active ? "bg-violet-100 font-medium text-violet-700" : "hover:bg-slate-200"
                         }`}
                       >
-                        <Link href={href} className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1">
+                        <Link href={href} className="flex min-w-0 flex-1 items-center gap-2 px-2 py-2 md:py-1">
                           {list.kind !== "tasks" ? (
                             <span
                               className="w-3.5 shrink-0 text-center text-xs"
@@ -536,5 +565,6 @@ export default function Sidebar({
         <button className="mt-1 text-violet-600 hover:underline">Sair</button>
       </form>
     </aside>
+    </>
   );
 }

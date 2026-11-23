@@ -40,9 +40,9 @@ export default async function WorkspaceLayout({
     <WorkspaceProvider value={{ workspace, members, me: auth.user.id, role }}>
       <ToastProvider>
         <QuickAddProvider>
-          <div className="flex h-screen overflow-hidden">
+          <div className="flex h-[100dvh] overflow-hidden">
             <Sidebar workspaces={workspaces ?? []} userEmail={auth.user.email ?? ""} />
-            <main className="flex min-w-0 flex-1 flex-col">{children}</main>
+            <main className="flex min-w-0 flex-1 flex-col pt-12 md:pt-0">{children}</main>
           </div>
           <Notifications />
           <InstallApp />

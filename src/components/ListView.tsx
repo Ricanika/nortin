@@ -12,7 +12,8 @@ import type { CampaignResult } from "@/lib/campaign";
 import { contentTotals, fmtNum, fmtPct, type SocialChannel } from "@/lib/social";
 import { cpc, sumMetrics } from "@/lib/campaign";
 import { memberName } from "@/lib/types";
-import { ChannelRows, ContentCells } from "./ContentMetrics";
+import { ChannelRows, ContentCells, EngagementValue, MobileChannelRows } from "./ContentMetrics";
+import NetworkBadge from "./NetworkBadge";
 import PostCover from "./PostCover";
 
 type SortKey =
@@ -170,8 +171,8 @@ export default function ListView({
             </button>
 
             {!collapsed[status.id] && (
-              <div className="overflow-x-auto sm:ml-5">
-                <div className={`grid ${cols} border-b px-2 pb-1 text-xs text-slate-400`}>
+              <div className="md:ml-5 md:overflow-x-auto">
+                <div className={`hidden md:grid ${cols} border-b px-2 pb-1 text-xs text-slate-400`}>
                   {head("name", "Nome", "pl-7")}
                   {head("assignees", "Responsáveis")}
                   <span>Status</span>
@@ -203,8 +204,18 @@ export default function ListView({
                   )}
                   {list.map((task) => (
                   <Fragment key={task.id}>
+                  {/* Celular: cartão em vez de colunas */}
+                  <MobileRow
+                    task={task}
+                    statuses={statuses}
+                    isDone={isDone}
+                    color={status.color}
+                    actions={actions}
+                    channels={social?.filter((c) => c.task_id === task.id)}
+                    content={Boolean(social)}
+                  />
                   <div
-                    className={`group grid ${cols} items-center border-b px-2 py-1.5 text-sm hover:bg-slate-50`}
+                    className={`group hidden md:grid ${cols} items-center border-b px-2 py-1.5 text-sm hover:bg-slate-50`}
                   >
                     <div className="flex min-w-0 items-center gap-2">
                       <CompleteToggle done={isDone} color={status.color} onToggle={() => actions.toggleDone(task.id)} />
@@ -270,7 +281,9 @@ export default function ListView({
                     </button>
                   </div>
                   {social && openChannels.has(task.id) && (
+                    <div className="hidden md:block">
                     <ChannelRows channels={social.filter((c) => c.task_id === task.id)} cols={cols} />
+                    </div>
                   )}
                   </Fragment>
                   ))}
@@ -305,6 +318,90 @@ function SubgroupHeader({ label, channels, count }: { label: string; channels: S
       <span className="tabular-nums text-slate-500">
         alcance {fmtNum(t.impressions)} · engaj. {fmtNum(t.interactions)} · taxa {fmtPct(t.engagement)}
       </span>
+    </div>
+  );
+}
+
+/** Linha da tarefa no celular: concluir, capa, título em até 2 linhas e, embaixo, status, prioridade, prazo e resultado. */
+function MobileRow({
+  task,
+  statuses,
+  isDone,
+  color,
+  actions,
+  channels,
+  content,
+}: {
+  task: Task;
+  statuses: Status[];
+  isDone: boolean;
+  color: string;
+  actions: TaskActions;
+  channels?: SocialChannel[];
+  content: boolean;
+}) {
+  const { members } = useWorkspace();
+  const [open, setOpen] = useState(false);
+  const published = (channels ?? []).filter((c) => c.status === "published");
+  const t = contentTotals(published);
+  return (
+    <div className="border-b md:hidden">
+      <div className="flex items-start gap-3 px-1 py-2.5">
+        <div className="pt-0.5">
+          <CompleteToggle done={isDone} color={color} onToggle={() => actions.toggleDone(task.id)} size={22} />
+        </div>
+        {content && (
+          <button onClick={() => actions.open(task.id)} className="shrink-0" aria-label="Abrir post">
+            <PostCover media={task.media} size={48} />
+          </button>
+        )}
+        <div className="min-w-0 flex-1">
+          <button
+            onClick={() => actions.open(task.id)}
+            className={`line-clamp-2 text-left text-[15px] leading-snug ${isDone && !content ? "text-slate-400 line-through" : "text-slate-800"}`}
+          >
+            {task.source === "form" && <span className="mr-1">📝</span>}
+            {task.title}
+          </button>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+            <span className="max-w-[9rem]">
+              <StatusPicker statuses={statuses} value={task.status_id} onChange={(status_id) => actions.update(task.id, { status_id })} />
+            </span>
+            <PriorityPicker value={task.priority} onChange={(priority) => actions.update(task.id, { priority })} />
+            <DuePicker
+              value={task.due_date}
+              done={isDone}
+              onChange={(due_date) => actions.update(task.id, { due_date })}
+              time={task.due_time}
+              onTimeChange={(due_time) => actions.update(task.id, { due_time })}
+              recurrence={task.recurrence}
+              onRecurrenceChange={(recurrence) => actions.update(task.id, { recurrence })}
+            />
+            <AssigneePicker value={task.assignees} members={members} onToggle={(userId, on) => actions.assign(task.id, userId, on)} />
+          </div>
+          {content && (channels?.length ?? 0) > 0 && (
+            <button onClick={() => setOpen(!open)} className="mt-1.5 flex w-full flex-wrap items-center gap-x-2 gap-y-1 text-left text-xs">
+              <span className="flex items-center gap-0.5">
+                {channels!.map((c) => (
+                  <span key={c.platform} className={c.status === "failed" ? "rounded ring-2 ring-red-500" : c.status === "scheduled" ? "opacity-40" : ""}>
+                    <NetworkBadge platform={c.platform} />
+                  </span>
+                ))}
+              </span>
+              {published.length > 0 ? (
+                <span className="tabular-nums text-slate-500">
+                  alcance <b className="text-slate-700">{t.impressions > 0 ? fmtNum(t.impressions) : "—"}</b> · engaj.{" "}
+                  <b className="text-slate-700">{fmtNum(t.interactions)}</b> · <EngagementValue value={t.engagement} />
+                </span>
+              ) : (
+                <span className="text-slate-400">agendado</span>
+              )}
+              <span className="text-slate-400">{open ? "▾" : "▸"}</span>
+            </button>
+          )}
+        </div>
+      </div>
+      {open && channels && <MobileChannelRows channels={channels} />}
     </div>
   );
 }

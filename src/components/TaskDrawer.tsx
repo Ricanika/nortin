@@ -129,8 +129,8 @@ export default function TaskDrawer({
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-black/20" onClick={onClose}>
-      <aside onClick={(e) => e.stopPropagation()} className="flex h-full w-full max-w-xl flex-col bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b px-5 py-3 text-sm">
+      <aside onClick={(e) => e.stopPropagation()} className="flex h-full w-full max-w-xl flex-col overflow-y-auto bg-white shadow-xl md:overflow-hidden">
+        <div className="flex items-center justify-between border-b px-4 py-3 text-sm sm:px-5">
           <span
             className="rounded px-2 py-0.5 text-xs font-semibold uppercase text-white"
             style={{ background: status?.color ?? "#94a3b8" }}
@@ -149,22 +149,30 @@ export default function TaskDrawer({
             <button onClick={() => actions.remove(task.id)} className="text-slate-400 hover:text-red-600">
               Excluir
             </button>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-800" aria-label="Fechar">
+            <button onClick={onClose} className="-m-2 p-2 text-lg leading-none text-slate-400 hover:text-slate-800" aria-label="Fechar">
               ✕
             </button>
           </div>
         </div>
 
         {/* Dados, resultados e publicação rolam juntos; o chat fica sempre visível embaixo */}
-        <div className={`shrink-0 overflow-y-auto ${social || campaign || task.source === "form" ? "max-h-[62vh]" : ""}`}>
+        <div className={`shrink-0 md:overflow-y-auto ${social || campaign || task.source === "form" ? "md:max-h-[62vh]" : ""}`}>
         {/* Dados da tarefa */}
-        <div className="space-y-4 border-b px-5 py-4">
-          <input
+        <div className="space-y-4 border-b px-4 py-4 sm:px-5">
+          <textarea
+            data-big
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            rows={1}
+            onChange={(e) => setTitle(e.target.value.replace(/\n/g, " "))}
             onBlur={() => title.trim() && title !== task.title && actions.update(task.id, { title: title.trim() })}
-            onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-            className="w-full text-xl font-semibold outline-none"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                e.currentTarget.blur();
+              }
+            }}
+            // título longo quebra em linhas em vez de sumir pela direita
+            className="w-full resize-none text-xl font-semibold leading-snug outline-none [field-sizing:content]"
             aria-label="Título"
           />
           <div className="grid grid-cols-[100px_1fr] items-center gap-y-2.5 text-sm">
@@ -251,9 +259,9 @@ export default function TaskDrawer({
         </div>
 
         {/* Chat */}
-        <div className="flex min-h-0 flex-1 flex-col bg-slate-50">
+        <div className="flex min-h-[420px] flex-1 flex-col bg-slate-50 md:min-h-0">
           <div className="border-b bg-white px-5 py-2 text-sm font-semibold text-slate-700">💬 Chat</div>
-          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto px-4 py-3">
+          <div className="max-h-[50vh] min-h-[200px] flex-1 space-y-1 overflow-y-auto px-4 py-3 md:max-h-none md:min-h-0">
             {messages === null && <p className="text-center text-sm text-slate-400">Carregando…</p>}
             {messages?.length === 0 && (
               <p className="mt-6 text-center text-sm text-slate-400">

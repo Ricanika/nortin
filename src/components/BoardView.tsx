@@ -5,7 +5,8 @@ import {
   closestCorners,
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useDroppable,
   useSensor,
   useSensors,
@@ -54,7 +55,11 @@ export default function BoardView({
     if (!activeId) setColumns(buildColumns(statuses, tasks));
   }, [statuses, tasks, activeId]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  // Mouse: arrasta ao mover 5px. Toque (celular): segurar ~0,25s para arrastar; deslizar rápido rola o quadro.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+  );
 
   const findColumn = (id: string) =>
     id in columns ? id : Object.keys(columns).find((k) => columns[k].includes(id));
@@ -113,7 +118,7 @@ export default function BoardView({
       onDragEnd={onDragEnd}
       onDragCancel={() => setActiveId(null)}
     >
-      <div className="flex h-full items-start gap-3 p-6">
+      <div className="flex h-full snap-x snap-mandatory items-start gap-3 overflow-x-auto p-3 sm:p-6 md:snap-none">
         {statuses.map((status) => (
           <Column
             key={status.id}
@@ -168,7 +173,7 @@ function Column({
   const done = status.type === "done" || status.type === "closed";
 
   return (
-    <div className="flex max-h-full w-72 shrink-0 flex-col rounded-lg bg-slate-100">
+    <div className="flex max-h-full w-[85vw] shrink-0 snap-center flex-col rounded-lg bg-slate-100 sm:w-72">
       <div className="group flex items-center gap-2 border-t-4 px-3 py-2 text-sm" style={{ borderColor: status.color }}>
         <span className="font-semibold uppercase">{status.name}</span>
         <span className="text-slate-400">{taskIds.length}</span>

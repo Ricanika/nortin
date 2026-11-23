@@ -389,7 +389,7 @@ export default function ListScreen({ listId }: { listId: string }) {
   return (
     <ListKindContext.Provider value={list?.kind ?? "tasks"}>
     <div className="flex h-full min-h-0 flex-col">
-      <header className="border-b px-6 pt-4">
+      <header className="border-b px-4 pt-4 sm:px-6">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <h1 className="text-lg font-semibold">{list?.name ?? "…"}</h1>
           {list && (
@@ -445,7 +445,7 @@ export default function ListScreen({ listId }: { listId: string }) {
               </button>
             ))}
           </div>
-          <div className="mb-2 flex flex-wrap gap-2">
+          <div className="mb-2 flex w-full flex-wrap gap-2 sm:w-auto">
             <select
               value={assigneeFilter ?? ""}
               onChange={(e) => setParam("p", e.target.value || null)}
@@ -466,14 +466,14 @@ export default function ListScreen({ listId }: { listId: string }) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Buscar tarefas…"
-              className="w-56 rounded-md border px-3 py-1 text-sm outline-none focus:border-violet-500"
+              className="w-full rounded-md border px-3 py-1 text-sm outline-none focus:border-violet-500 sm:w-56"
             />
           </div>
         </div>
       </header>
 
       {(list?.archived_at || spaceArchived) && (
-        <div className="flex flex-wrap items-center justify-between gap-2 bg-amber-50 px-6 py-2 text-sm text-amber-800">
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-amber-50 px-4 py-2 sm:px-6 text-sm text-amber-800">
           <span>
             📦 {spaceArchived ? "O Space desta lista está arquivado" : "Esta lista está arquivada"}. As tarefas não aparecem em Meu dia,
             Minhas tarefas nem Gestão.
@@ -485,7 +485,7 @@ export default function ListScreen({ listId }: { listId: string }) {
       )}
 
       {error && (
-        <div className="flex items-center justify-between bg-red-50 px-6 py-2 text-sm text-red-700">
+        <div className="flex items-center justify-between bg-red-50 px-4 py-2 sm:px-6 text-sm text-red-700">
           {error}
           <button onClick={() => setError(null)}>✕</button>
         </div>
