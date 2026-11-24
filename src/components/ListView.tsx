@@ -15,6 +15,7 @@ import { memberName } from "@/lib/types";
 import { ChannelRows, ContentCells, EngagementValue, MobileChannelRows } from "./ContentMetrics";
 import NetworkBadge from "./NetworkBadge";
 import PostCover from "./PostCover";
+import { PdvCells, PdvMobileLine, type PdvBundle } from "./Pdv";
 
 type SortKey =
   | "name"
@@ -30,6 +31,8 @@ type SortKey =
   | "c_spend";
 
 const COLS = "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_32px] min-w-[700px]";
+const COLS_PDV =
+  "grid-cols-[minmax(200px,1fr)_96px_150px_90px_104px_64px_100px_100px_80px_90px_32px] min-w-[1100px]";
 // Lista de campanha: + Plataformas, Impressões, Cliques, CPC, Gasto (larguras iguais às do CampaignCells)
 const COLS_CAMPAIGN =
   "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_52px_84px_72px_78px_96px_32px] min-w-[1130px]";
@@ -44,12 +47,14 @@ export default function ListView({
   actions,
   campaign,
   social,
+  pdv,
 }: {
   statuses: Status[];
   tasks: Task[];
   actions: TaskActions;
   campaign?: { results: CampaignResult[]; onSaved: (r: CampaignResult) => void };
   social?: SocialChannel[];
+  pdv?: PdvBundle;
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [openChannels, setOpenChannels] = useState<Set<string>>(new Set());
@@ -61,7 +66,7 @@ export default function ListView({
       return n;
     });
   const { members } = useWorkspace();
-  const cols = campaign ? COLS_CAMPAIGN : social ? COLS_CONTENT : COLS;
+  const cols = campaign ? COLS_CAMPAIGN : social ? COLS_CONTENT : pdv ? COLS_PDV : COLS;
 
   // Ordenação pelos títulos das colunas: ▲ crescente → ▼ decrescente → ordem manual.
   // Vale dentro de cada grupo de status e fica lembrada por lista neste navegador.
@@ -186,6 +191,15 @@ export default function ListView({
                       {head("engagement", "Taxa %", "justify-end pr-2")}
                     </>
                   )}
+                  {pdv && (
+                    <>
+                      <span>Cód.</span>
+                      <span className="pr-2 text-right">Antes/mês</span>
+                      <span className="pr-2 text-right">Depois/mês</span>
+                      <span className="pr-2 text-right">Vendas</span>
+                      <span className="pr-2 text-right">Frequência</span>
+                    </>
+                  )}
                   {campaign && (
                     <>
                       <span className="pl-1">Mídia</span>
@@ -213,6 +227,7 @@ export default function ListView({
                     actions={actions}
                     channels={social?.filter((c) => c.task_id === task.id)}
                     content={Boolean(social)}
+                    pdv={pdv}
                   />
                   <div
                     className={`group hidden md:grid ${cols} items-center border-b px-2 py-1.5 text-sm hover:bg-slate-50`}
@@ -263,6 +278,7 @@ export default function ListView({
                         onToggle={() => toggleChannels(task.id)}
                       />
                     )}
+                    {pdv && <PdvCells task={task} bundle={pdv} />}
                     {campaign && (
                       <CampaignCells
                         taskId={task.id}
@@ -331,6 +347,7 @@ function MobileRow({
   actions,
   channels,
   content,
+  pdv,
 }: {
   task: Task;
   statuses: Status[];
@@ -339,6 +356,7 @@ function MobileRow({
   actions: TaskActions;
   channels?: SocialChannel[];
   content: boolean;
+  pdv?: PdvBundle;
 }) {
   const { members } = useWorkspace();
   const [open, setOpen] = useState(false);
@@ -379,6 +397,7 @@ function MobileRow({
             />
             <AssigneePicker value={task.assignees} members={members} onToggle={(userId, on) => actions.assign(task.id, userId, on)} />
           </div>
+          {pdv && <PdvMobileLine task={task} bundle={pdv} />}
           {content && (channels?.length ?? 0) > 0 && (
             <button onClick={() => setOpen(!open)} className="mt-1.5 flex w-full flex-wrap items-center gap-x-2 gap-y-1 text-left text-xs">
               <span className="flex items-center gap-0.5">

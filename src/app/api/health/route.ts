@@ -12,6 +12,10 @@ const VARS = [
   "GHL_TOKEN_ROGA",
   "GEMINI_API_KEY",
   "META_TOKEN",
+  "SANKHYA_APPKEY",
+  "SANKHYA_TOKEN",
+  "SANKHYA_USER",
+  "SANKHYA_PASSWORD",
 ];
 
 export async function GET() {

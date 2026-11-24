@@ -169,7 +169,9 @@ export default function Sidebar({
     const { error } =
       kind === "content"
         ? await createClient().rpc("make_content_list", { p_list: list.id })
-        : await createClient().from("lists").update({ kind }).eq("id", list.id);
+        : kind === "pdv"
+          ? await createClient().rpc("make_pdv_list", { p_list: list.id })
+          : await createClient().from("lists").update({ kind }).eq("id", list.id);
     if (error) {
       setLists((prev) => prev.map((l) => (l.id === list.id ? list : l)));
       return toast(`Não deu para mudar a lista: ${error.message}`);
@@ -179,6 +181,8 @@ export default function Sidebar({
         ? `"${list.name}" agora é lista de campanha 📈`
         : kind === "content"
           ? `"${list.name}" agora é lista de conteúdo 📱`
+          : kind === "pdv"
+            ? `"${list.name}" agora é lista de PDV 🏪`
           : `"${list.name}" voltou a ser lista comum`,
     );
     notifyStructureChanged();
@@ -402,9 +406,9 @@ export default function Sidebar({
                           {list.kind !== "tasks" ? (
                             <span
                               className="w-3.5 shrink-0 text-center text-xs"
-                              title={list.kind === "campaign" ? "Lista de campanha" : "Lista de conteúdo"}
+                              title={list.kind === "campaign" ? "Lista de campanha" : list.kind === "pdv" ? "Lista de PDV" : "Lista de conteúdo"}
                             >
-                              {list.kind === "campaign" ? "📈" : "📱"}
+                              {list.kind === "campaign" ? "📈" : list.kind === "pdv" ? "🏪" : "📱"}
                             </span>
                           ) : (
                           <svg
@@ -441,6 +445,7 @@ export default function Sidebar({
                                 [
                                   ["content", "📱 Tornar lista de conteúdo"],
                                   ["campaign", "📈 Tornar lista de campanha"],
+                                  ["pdv", "🏪 Tornar lista de PDV"],
                                   ["tasks", "☰ Voltar a lista comum"],
                                 ] as const
                               )

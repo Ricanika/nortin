@@ -15,11 +15,12 @@ import { ContentSummary } from "./ContentMetrics";
 import { ListKindContext } from "./PostCover";
 import { toResult, type CampaignResult } from "@/lib/campaign";
 import type { SocialChannel } from "@/lib/social";
+import { PdvSummary, usePdvBundle } from "./Pdv";
 import { useToast } from "./Toast";
 import { notifyStructureChanged, STRUCTURE_EVENT, toggleTarget } from "@/lib/tasks";
 
 export type TaskPatch = Partial<
-  Pick<Task, "title" | "description" | "status_id" | "priority" | "due_date" | "due_time" | "position" | "recurrence" | "folder_url" | "media" | "post_type" | "cta_url">
+  Pick<Task, "title" | "description" | "status_id" | "priority" | "due_date" | "due_time" | "pdv" | "pdv_codparc" | "position" | "recurrence" | "folder_url" | "media" | "post_type" | "cta_url">
 >;
 
 export interface TaskActions {
@@ -52,6 +53,7 @@ export default function ListScreen({ listId }: { listId: string }) {
   const [results, setResults] = useState<CampaignResult[]>([]);
   const isCampaign = list?.kind === "campaign";
   const isContent = list?.kind === "content";
+  const isPdv = list?.kind === "pdv";
   const [channels, setChannels] = useState<SocialChannel[]>([]);
 
   // Lista de conteúdo: status, link e métricas de cada rede dos posts, em tempo real
@@ -105,6 +107,22 @@ export default function ListScreen({ listId }: { listId: string }) {
   }, [isCampaign, listId, supabase, workspace.id, saveResult]);
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const pdvBundle = usePdvBundle(list?.kind === "pdv", tasks);
+  const reloadPdv = pdvBundle.reload;
+  // Lista de PDV: tarefa criada só com o código ("53") busca o cliente no Sankhya sozinha
+  const pdvLookups = useRef(new Set<string>());
+  useEffect(() => {
+    if (list?.kind !== "pdv") return;
+    for (const t of tasks) {
+      if (t.pdv_codparc || !/^\s*\d+\s*$/.test(t.title) || pdvLookups.current.has(t.id)) continue;
+      pdvLookups.current.add(t.id);
+      void fetch("/api/pdv/partner", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId: t.id, codparc: Number(t.title.trim()) }),
+      }).then(() => reloadPdv());
+    }
+  }, [list?.kind, tasks, reloadPdv]);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -497,6 +515,11 @@ export default function ListScreen({ listId }: { listId: string }) {
             <ContentSummary channels={channels.filter((c) => tasks.some((t) => t.id === c.task_id))} />
           </div>
         )}
+        {isPdv && view === "list" && (
+          <div className="px-4 pt-4 sm:px-6">
+            <PdvSummary tasks={tasks} bundle={pdvBundle} />
+          </div>
+        )}
         {isCampaign && view === "list" && (
           <div className="px-4 pt-4 sm:px-6">
             <CampaignSummary results={results.filter((r) => tasks.some((t) => t.id === r.task_id))} />
@@ -509,6 +532,7 @@ export default function ListScreen({ listId }: { listId: string }) {
             actions={actions}
             campaign={isCampaign ? { results, onSaved: saveResult } : undefined}
             social={isContent ? channels : undefined}
+            pdv={isPdv ? pdvBundle : undefined}
           />
         ) : view === "calendar" ? (
           <CalendarView
@@ -549,6 +573,7 @@ export default function ListScreen({ listId }: { listId: string }) {
           listFolder={list?.folder_url ?? null}
           campaign={isCampaign ? { results: results.filter((r) => r.task_id === openTask.id), onSaved: saveResult } : undefined}
           social={isContent ? channels.filter((c) => c.task_id === openTask.id) : undefined}
+          pdv={isPdv ? pdvBundle : undefined}
           statuses={sortedStatuses}
           actions={actions}
           onClose={() => setParam("t", null)}
