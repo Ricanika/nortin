@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { notifyStructureChanged, STRUCTURE_EVENT } from "@/lib/tasks";
-import { formUrl, type List, type Space, type Workspace } from "@/lib/types";
+import { formUrl, type List, type Space, type SpaceGroup, type Workspace } from "@/lib/types";
 import Popover from "./Popover";
 import { useToast } from "./Toast";
 import { useWorkspace } from "./WorkspaceContext";
@@ -37,6 +37,9 @@ export default function Sidebar({
   const [openCounts, setOpenCounts] = useState<Record<string, number>>({});
   // Celular: o menu vira uma gaveta, aberta pelo ☰ da barra do topo
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [groups, setGroups] = useState<SpaceGroup[]>([]);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const toggleGroup = (id: string) => setCollapsedGroups((c) => ({ ...c, [id]: !c[id] }));
   useEffect(() => setMobileOpen(false), [pathname]);
 
   // Contador ao lado de cada lista: tarefas em aberto (sem subtarefas e sem concluídas)
@@ -81,9 +84,11 @@ export default function Sidebar({
       Promise.all([
         supabase.from("spaces").select("*").eq("workspace_id", workspace.id).order("position"),
         supabase.from("lists").select("*").eq("workspace_id", workspace.id).order("position"),
-      ]).then(([s, l]) => {
+        supabase.from("space_groups").select("*").eq("workspace_id", workspace.id).order("position"),
+      ]).then(([s, l, g]) => {
         setSpaces((s.data as Space[]) ?? []);
         setLists((l.data as List[]) ?? []);
+        setGroups((g.data as SpaceGroup[]) ?? []);
       });
     load();
     // Desarquivar pelo aviso da própria lista também atualiza a barra
@@ -143,6 +148,58 @@ export default function Sidebar({
     if (target.kind === "space") setSpaces((prev) => prev.map((s) => (s.id === target.id ? { ...s, name } : s)));
     else setLists((prev) => prev.map((l) => (l.id === target.id ? { ...l, name } : l)));
     router.refresh();
+  }
+
+  // Pastas (acima dos Spaces): só o dono organiza
+  async function createGroup(): Promise<string | null> {
+    const name = window.prompt("Nome da nova pasta (ex.: Marketing, Comercial)")?.trim();
+    if (!name) return null;
+    const { data, error } = await createClient()
+      .from("space_groups")
+      .insert({ workspace_id: workspace.id, name, position: (groups.at(-1)?.position ?? 0) + 1000 })
+      .select()
+      .single();
+    if (error) {
+      toast(`Não deu para criar a pasta: ${error.message}`);
+      return null;
+    }
+    setGroups((prev) => [...prev, data as SpaceGroup]);
+    return (data as SpaceGroup).id;
+  }
+  async function renameGroup(g: SpaceGroup) {
+    const name = window.prompt("Novo nome da pasta", g.name)?.trim();
+    if (!name || name === g.name) return;
+    const { error } = await createClient().from("space_groups").update({ name }).eq("id", g.id);
+    if (error) return toast(`Não deu para renomear: ${error.message}`);
+    setGroups((prev) => prev.map((x) => (x.id === g.id ? { ...x, name } : x)));
+  }
+  async function deleteGroup(g: SpaceGroup) {
+    if (!window.confirm(`Excluir a pasta "${g.name}"? Os Spaces dela continuam, só ficam fora de pasta.`)) return;
+    const { error } = await createClient().from("space_groups").delete().eq("id", g.id);
+    if (error) return toast(`Não deu para excluir: ${error.message}`);
+    setGroups((prev) => prev.filter((x) => x.id !== g.id));
+    setSpaces((prev) => prev.map((s) => (s.group_id === g.id ? { ...s, group_id: null } : s)));
+  }
+  async function moveSpaceToGroup(space: Space, groupId: string | null) {
+    const before = space.group_id;
+    setSpaces((prev) => prev.map((s) => (s.id === space.id ? { ...s, group_id: groupId } : s)));
+    const { error } = await createClient().from("spaces").update({ group_id: groupId }).eq("id", space.id);
+    if (error) {
+      setSpaces((prev) => prev.map((s) => (s.id === space.id ? { ...s, group_id: before } : s)));
+      return toast(`Não deu para mover: ${error.message}`);
+    }
+    toast(groupId ? `"${space.name}" foi para a pasta ${groups.find((g) => g.id === groupId)?.name ?? ""}` : `"${space.name}" saiu da pasta`);
+  }
+  async function moveListToSpace(list: List, space: Space) {
+    setLists((prev) => prev.map((l) => (l.id === list.id ? { ...l, space_id: space.id } : l)));
+    const { error } = await createClient().from("lists").update({ space_id: space.id, folder_id: null }).eq("id", list.id);
+    if (error) {
+      setLists((prev) => prev.map((l) => (l.id === list.id ? list : l)));
+      return toast(`Não deu para mover a lista: ${error.message}`);
+    }
+    setCollapsed((c) => ({ ...c, [space.id]: false }));
+    toast(`Lista "${list.name}" agora está em ${space.name}`);
+    notifyStructureChanged();
   }
 
   // Arquivar nunca apaga: some da barra e das visões, e volta com "Desarquivar".
@@ -260,82 +317,7 @@ export default function Sidebar({
     setEditing({ kind, id });
   };
 
-  return (
-    <>
-      {/* Barra do topo, só no celular */}
-      <div className="fixed inset-x-0 top-0 z-30 flex h-12 items-center gap-2 border-b bg-white/95 px-2 backdrop-blur md:hidden">
-        <button
-          onClick={() => setMobileOpen(true)}
-          aria-label="Abrir menu"
-          className="flex h-10 w-10 items-center justify-center rounded-lg text-xl text-slate-700 active:bg-slate-100"
-        >
-          ☰
-        </button>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/icon-192.png" alt="" className="h-6 w-6 rounded" />
-        <span className="truncate text-sm font-semibold text-slate-800">{workspace.name}</span>
-      </div>
-      {mobileOpen && <div className="fixed inset-0 z-40 bg-black/30 md:hidden" onClick={() => setMobileOpen(false)} />}
-    <aside
-      className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] shrink-0 flex-col border-r bg-slate-50 shadow-xl transition-transform duration-200 md:static md:z-auto md:w-64 md:translate-x-0 md:shadow-none ${
-        mobileOpen ? "translate-x-0" : "-translate-x-full"
-      }`}
-    >
-      <div className="flex items-center gap-1 border-b p-3">
-        <button
-          onClick={() => setMobileOpen(false)}
-          aria-label="Fechar menu"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg text-slate-500 active:bg-slate-200 md:hidden"
-        >
-          ✕
-        </button>
-        <select
-          value={workspace.id}
-          onChange={(e) => router.push(`/w/${e.target.value}`)}
-          className="w-full rounded-md bg-transparent px-1 py-1 text-sm font-semibold outline-none hover:bg-slate-200"
-        >
-          {workspaces.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <nav className="flex-1 space-y-1 overflow-y-auto p-2">
-        {[
-          { href: `/w/${workspace.id}`, label: "Meu dia", icon: "☀️", show: true },
-          { href: `/w/${workspace.id}/gestao`, label: "Gestão", icon: "📊", show: isAdmin },
-          { href: `/w/${workspace.id}/members`, label: "Membros", icon: "👥", show: isAdmin },
-        ]
-          .filter((item) => item.show)
-          .map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-2 rounded-md px-2 py-2.5 text-sm md:py-1.5 ${
-                pathname === item.href ? "bg-violet-100 font-medium text-violet-700" : "hover:bg-slate-200"
-              }`}
-            >
-              <span className="w-5 text-center">{item.icon}</span>
-              {item.label}
-            </Link>
-          ))}
-
-        <div className="flex items-center justify-between px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-slate-400">
-          Spaces
-          {isOwner && (
-            <button
-              title="Novo Space"
-              onClick={() => setAdding({ kind: "space" })}
-              className="rounded px-1 text-base leading-none hover:bg-slate-200 hover:text-slate-700"
-            >
-              +
-            </button>
-          )}
-        </div>
-
-        {activeSpaces.map((space) => (
+  const renderSpace = (space: Space) => (
           <div key={space.id}>
             {editing?.kind === "space" && editing.id === space.id ? (
               <div className="px-2 py-1">{renameInput}</div>
@@ -365,6 +347,46 @@ export default function Sidebar({
                         <button className={menuItem} onClick={() => startRename("space", space.id, space.name, close)}>
                           ✏️ Renomear
                         </button>
+                      )}
+                      {isOwner && (
+                        <div className="border-y py-1">
+                          <div className="px-3 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">📁 Mover para pasta</div>
+                          {groups
+                            .filter((g) => g.id !== space.group_id)
+                            .map((g) => (
+                              <button
+                                key={g.id}
+                                className={menuItem}
+                                onClick={() => {
+                                  close();
+                                  void moveSpaceToGroup(space, g.id);
+                                }}
+                              >
+                                ↳ {g.name}
+                              </button>
+                            ))}
+                          {space.group_id && (
+                            <button
+                              className={menuItem}
+                              onClick={() => {
+                                close();
+                                void moveSpaceToGroup(space, null);
+                              }}
+                            >
+                              ↳ Sem pasta
+                            </button>
+                          )}
+                          <button
+                            className={menuItem}
+                            onClick={async () => {
+                              close();
+                              const id = await createGroup();
+                              if (id) void moveSpaceToGroup(space, id);
+                            }}
+                          >
+                            ＋ Nova pasta…
+                          </button>
+                        </div>
                       )}
                       <button
                         className={menuItem}
@@ -467,6 +489,26 @@ export default function Sidebar({
                                     {label}
                                   </button>
                                 ))}
+                              {activeSpaces.filter((sp) => sp.id !== list.space_id).length > 0 && (
+                                <div className="border-y py-1">
+                                  <div className="px-3 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">↪ Mover para o Space</div>
+                                  {activeSpaces
+                                    .filter((sp) => sp.id !== list.space_id)
+                                    .map((sp) => (
+                                      <button
+                                        key={sp.id}
+                                        className={menuItem}
+                                        onClick={() => {
+                                          close();
+                                          void moveListToSpace(list, sp);
+                                        }}
+                                      >
+                                        <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: sp.color }} />
+                                        {sp.name}
+                                      </button>
+                                    ))}
+                                </div>
+                              )}
                               {list.form_enabled && list.form_token ? (
                                 <>
                                   <button
@@ -518,7 +560,142 @@ export default function Sidebar({
               </div>
             )}
           </div>
-        ))}
+  );
+
+  return (
+    <>
+      {/* Barra do topo, só no celular */}
+      <div className="fixed inset-x-0 top-0 z-30 flex h-12 items-center gap-2 border-b bg-white/95 px-2 backdrop-blur md:hidden">
+        <button
+          onClick={() => setMobileOpen(true)}
+          aria-label="Abrir menu"
+          className="flex h-10 w-10 items-center justify-center rounded-lg text-xl text-slate-700 active:bg-slate-100"
+        >
+          ☰
+        </button>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icon-192.png" alt="" className="h-6 w-6 rounded" />
+        <span className="truncate text-sm font-semibold text-slate-800">{workspace.name}</span>
+      </div>
+      {mobileOpen && <div className="fixed inset-0 z-40 bg-black/30 md:hidden" onClick={() => setMobileOpen(false)} />}
+    <aside
+      className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] shrink-0 flex-col border-r bg-slate-50 shadow-xl transition-transform duration-200 md:static md:z-auto md:w-64 md:translate-x-0 md:shadow-none ${
+        mobileOpen ? "translate-x-0" : "-translate-x-full"
+      }`}
+    >
+      <div className="flex items-center gap-1 border-b p-3">
+        <button
+          onClick={() => setMobileOpen(false)}
+          aria-label="Fechar menu"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg text-slate-500 active:bg-slate-200 md:hidden"
+        >
+          ✕
+        </button>
+        <select
+          value={workspace.id}
+          onChange={(e) => router.push(`/w/${e.target.value}`)}
+          className="w-full rounded-md bg-transparent px-1 py-1 text-sm font-semibold outline-none hover:bg-slate-200"
+        >
+          {workspaces.map((w) => (
+            <option key={w.id} value={w.id}>
+              {w.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <nav className="flex-1 space-y-1 overflow-y-auto p-2">
+        {[
+          { href: `/w/${workspace.id}`, label: "Meu dia", icon: "☀️", show: true },
+          { href: `/w/${workspace.id}/gestao`, label: "Gestão", icon: "📊", show: isAdmin },
+          { href: `/w/${workspace.id}/members`, label: "Membros", icon: "👥", show: isAdmin },
+        ]
+          .filter((item) => item.show)
+          .map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center gap-2 rounded-md px-2 py-2.5 text-sm md:py-1.5 ${
+                pathname === item.href ? "bg-violet-100 font-medium text-violet-700" : "hover:bg-slate-200"
+              }`}
+            >
+              <span className="w-5 text-center">{item.icon}</span>
+              {item.label}
+            </Link>
+          ))}
+
+        <div className="flex items-center justify-between px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-slate-400">
+          Spaces
+          {isOwner && (
+            <span className="flex items-center gap-1">
+            <button
+              title="Nova pasta"
+              onClick={() => void createGroup()}
+              className="rounded px-1 text-[11px] leading-none hover:bg-slate-200 hover:text-slate-700"
+            >
+              📁+
+            </button>
+            <button
+              title="Novo Space"
+              onClick={() => setAdding({ kind: "space" })}
+              className="rounded px-1 text-base leading-none hover:bg-slate-200 hover:text-slate-700"
+            >
+              +
+            </button>
+            </span>
+          )}
+        </div>
+
+        {groups.map((g) => {
+          const inGroup = activeSpaces.filter((sp) => sp.group_id === g.id);
+          const closed = collapsedGroups[g.id];
+          return (
+            <div key={g.id} className="pt-1">
+              <div className="group flex items-center gap-1 rounded-md px-1 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500 hover:bg-slate-200">
+                <button onClick={() => toggleGroup(g.id)} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
+                  <span className="w-3 text-slate-400">{closed ? "▸" : "▾"}</span>
+                  <span>📁</span>
+                  <span className="truncate">{g.name}</span>
+                  <span className="font-normal text-slate-400">{inGroup.length}</span>
+                </button>
+                {isOwner && (
+                  <Popover
+                    label={`Opções da pasta ${g.name}`}
+                    width={190}
+                    triggerClassName="invisible rounded px-1 leading-none text-slate-500 hover:bg-slate-300 group-hover:visible aria-expanded:visible"
+                    trigger="⋯"
+                  >
+                    {(close) => (
+                      <>
+                        <button
+                          className={menuItem}
+                          onClick={() => {
+                            close();
+                            void renameGroup(g);
+                          }}
+                        >
+                          ✏️ Renomear pasta
+                        </button>
+                        <button
+                          className={menuItem}
+                          onClick={() => {
+                            close();
+                            void deleteGroup(g);
+                          }}
+                        >
+                          🗑 Excluir pasta (os Spaces ficam)
+                        </button>
+                      </>
+                    )}
+                  </Popover>
+                )}
+              </div>
+              {!closed && <div className="ml-2">{inGroup.map(renderSpace)}</div>}
+            </div>
+          );
+        })}
+
+        {activeSpaces.filter((sp) => !sp.group_id || !groups.some((g) => g.id === sp.group_id)).map(renderSpace)}
 
         {adding?.kind === "space" && <div className="px-2">{addInput}</div>}
 

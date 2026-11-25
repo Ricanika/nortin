@@ -25,6 +25,15 @@ export interface Space {
   color: string;
   position: number;
   archived_at: string | null;
+  group_id: string | null;
+}
+
+/** Pasta acima dos Spaces (ex.: Marketing, Comercial) */
+export interface SpaceGroup {
+  id: string;
+  workspace_id: string;
+  name: string;
+  position: number;
 }
 
 export interface List {

@@ -15,6 +15,7 @@ import type { SocialChannel } from "@/lib/social";
 import SocialPost from "./SocialPost";
 import { PdvPanel, type PdvBundle } from "./Pdv";
 import { LaunchPanel } from "./Launch";
+import MoveTask from "./MoveTask";
 
 type Message = Omit<Comment, "profiles">;
 
@@ -152,6 +153,7 @@ export default function TaskDrawer({
             >
               {isDone ? "✓ Concluída" : "✓ Concluir"}
             </button>
+            <MoveTask taskId={task.id} listId={task.list_id} onMoved={onClose} />
             <button onClick={() => actions.remove(task.id)} className="text-slate-400 hover:text-red-600">
               Excluir
             </button>
