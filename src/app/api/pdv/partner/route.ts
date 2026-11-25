@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       warning = (e as Error).message;
     }
   } else {
-    warning = "A integração com o Sankhya ainda não está ligada: o código foi salvo e os dados entram assim que o TI liberar o acesso.";
+    warning = "A conexão com o Sankhya ainda não está ligada: o código foi salvo e os dados entram assim que a chave do MCP estiver na Vercel.";
   }
   if (!partner) {
     const { data } = await admin.from("pdv_partners").select("*").eq("codparc", codparc).maybeSingle();

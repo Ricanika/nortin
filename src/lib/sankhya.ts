@@ -1,71 +1,118 @@
 import "server-only";
 
 /**
- * Leitura do Sankhya pela API oficial (gateway), só consultas (DbExplorerSP.executeQuery).
- * Chaves só na Vercel: SANKHYA_APPKEY, SANKHYA_TOKEN, SANKHYA_USER, SANKHYA_PASSWORD
- * (opcional SANKHYA_URL, padrão https://api.sankhya.com.br).
+ * Leitura do Sankhya pelo MCP da Nitron (o TI libera só views; nada de escrita).
+ * Na Vercel: SANKHYA_MCP_URL (endereço do MCP) e SANKHYA_MCP_TOKEN (chave do app).
+ * Opcional: SANKHYA_MCP_HEADER, se a chave não for enviada como "Authorization: Bearer".
  */
-const BASE = () => (process.env.SANKHYA_URL || "https://api.sankhya.com.br").replace(/\/$/, "");
-
 export class SankhyaError extends Error {}
 
 export function sankhyaConfigured() {
-  return Boolean(process.env.SANKHYA_APPKEY && process.env.SANKHYA_TOKEN && process.env.SANKHYA_USER && process.env.SANKHYA_PASSWORD);
+  return Boolean(process.env.SANKHYA_MCP_URL && process.env.SANKHYA_MCP_TOKEN);
 }
 
-let session: { bearer: string; at: number } | null = null;
+function headers(session?: string): Record<string, string> {
+  const token = process.env.SANKHYA_MCP_TOKEN!;
+  const custom = process.env.SANKHYA_MCP_HEADER;
+  return {
+    "Content-Type": "application/json",
+    Accept: "application/json, text/event-stream",
+    "MCP-Protocol-Version": "2025-06-18",
+    ...(custom ? { [custom]: token } : { Authorization: `Bearer ${token}` }),
+    ...(session ? { "mcp-session-id": session } : {}),
+  };
+}
 
-async function login(): Promise<string> {
-  if (session && Date.now() - session.at < 15 * 60 * 1000) return session.bearer;
-  if (!sankhyaConfigured()) throw new SankhyaError("Integração com o Sankhya ainda não configurada (faltam as chaves na Vercel).");
-  const res = await fetch(`${BASE()}/login`, {
+let rpcId = 0;
+let session: { id: string | undefined; at: number } | null = null;
+
+/** Lê a resposta do MCP: JSON puro ou eventos (SSE) com "data: {...}". */
+async function readRpc(res: Response, id: number) {
+  const text = await res.text();
+  const type = res.headers.get("content-type") ?? "";
+  const messages = type.includes("text/event-stream")
+    ? text
+        .split("\n")
+        .filter((l) => l.startsWith("data:"))
+        .map((l) => {
+          try {
+            return JSON.parse(l.slice(5).trim());
+          } catch {
+            return null;
+          }
+        })
+    : [(() => {
+        try {
+          return JSON.parse(text);
+        } catch {
+          return null;
+        }
+      })()];
+  const msg = messages.find((m) => m && m.id === id) ?? messages.find(Boolean);
+  if (!msg) throw new SankhyaError(`MCP respondeu sem conteúdo (HTTP ${res.status})`);
+  if (msg.error) throw new SankhyaError(`MCP: ${msg.error.message ?? "erro"}`);
+  return msg.result;
+}
+
+async function rpc(method: string, params: unknown, sessionId?: string) {
+  const id = ++rpcId;
+  const res = await fetch(process.env.SANKHYA_MCP_URL!, {
     method: "POST",
-    headers: {
-      token: process.env.SANKHYA_TOKEN!,
-      appkey: process.env.SANKHYA_APPKEY!,
-      username: process.env.SANKHYA_USER!,
-      password: process.env.SANKHYA_PASSWORD!,
-    },
+    headers: headers(sessionId),
+    body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
     cache: "no-store",
   });
-  const json = (await res.json().catch(() => ({}))) as { bearerToken?: string; error?: { descricao?: string } };
-  if (!res.ok || !json.bearerToken) throw new SankhyaError(`Login no Sankhya recusado${json.error?.descricao ? `: ${json.error.descricao}` : ""} (HTTP ${res.status})`);
-  session = { bearer: json.bearerToken, at: Date.now() };
-  return session.bearer;
+  if (res.status === 401 || res.status === 403) throw new SankhyaError(`O MCP recusou a chave do app (HTTP ${res.status})`);
+  if (!res.ok) throw Object.assign(new SankhyaError(`MCP HTTP ${res.status}`), { status: res.status });
+  return { result: await readRpc(res, id), session: res.headers.get("mcp-session-id") ?? undefined };
 }
 
-/** Executa um SELECT e devolve as linhas como objetos { COLUNA: valor }. */
-export async function sankhyaQuery<T = Record<string, unknown>>(sql: string): Promise<T[]> {
-  if (!/^\s*(select|with)\b/i.test(sql)) throw new SankhyaError("Só consultas de leitura");
-  const run = async (bearer: string) =>
-    fetch(`${BASE()}/gateway/v1/mge/service.sbr?serviceName=DbExplorerSP.executeQuery&outputType=json`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${bearer}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ serviceName: "DbExplorerSP.executeQuery", requestBody: { sql } }),
-      cache: "no-store",
-    });
-  let res = await run(await login());
-  if (res.status === 401) {
-    session = null;
-    res = await run(await login());
-  }
-  const json = (await res.json().catch(() => ({}))) as {
-    status?: string;
-    statusMessage?: string;
-    responseBody?: { fieldsMetadata?: { name: string }[]; rows?: unknown[][] };
-  };
-  if (!res.ok || json.status !== "1") throw new SankhyaError(`Sankhya: ${json.statusMessage ?? `HTTP ${res.status}`}`);
-  const cols = (json.responseBody?.fieldsMetadata ?? []).map((f) => f.name);
-  return (json.responseBody?.rows ?? []).map((r) => Object.fromEntries(cols.map((c, i) => [c, r[i]])) as T);
-}
-
-/** Foto do produto guardada no Sankhya (campo IMAGEM). Devolve os bytes ou null. */
-export async function sankhyaProductImage(codprod: number): Promise<{ bytes: ArrayBuffer; type: string } | null> {
-  const res = await fetch(`${BASE()}/gateway/v1/mge/Produto@IMAGEM@CODPROD=${codprod}.dbimage`, {
-    headers: { Authorization: `Bearer ${await login()}` },
+async function openSession() {
+  if (session && Date.now() - session.at < 10 * 60 * 1000) return session.id;
+  if (!sankhyaConfigured()) throw new SankhyaError("Conexão com o MCP do Sankhya ainda não configurada (faltam SANKHYA_MCP_URL e SANKHYA_MCP_TOKEN na Vercel).");
+  const init = await rpc("initialize", {
+    protocolVersion: "2025-06-18",
+    capabilities: {},
+    clientInfo: { name: "hyakgroup-app", version: "1.0" },
+  });
+  // avisa que a sessão está pronta (sem resposta esperada)
+  await fetch(process.env.SANKHYA_MCP_URL!, {
+    method: "POST",
+    headers: headers(init.session),
+    body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
     cache: "no-store",
-  }).catch(() => null);
-  const type = res?.headers.get("content-type") ?? "";
-  if (!res?.ok || !type.startsWith("image/")) return null;
-  return { bytes: await res.arrayBuffer(), type };
+  }).catch(() => undefined);
+  session = { id: init.session, at: Date.now() };
+  return session.id;
+}
+
+/** Executa um SELECT pelo MCP e devolve as linhas como objetos { COLUNA: valor }. */
+export async function sankhyaQuery<T = Record<string, unknown>>(sql: string, objetivo = "App Hyak: Gestão de PDV (visitas de merchandising)"): Promise<T[]> {
+  if (!/^\s*(select|with)\b/i.test(sql)) throw new SankhyaError("Só consultas de leitura");
+  const call = async () =>
+    rpc("tools/call", { name: "sankhya_query", arguments: { sql, objetivo, response_format: "json" } }, await openSession());
+  let out;
+  try {
+    out = await call();
+  } catch (e) {
+    // sessão expirada no servidor: abre outra e tenta de novo
+    if ((e as { status?: number }).status === 404 || (e as { status?: number }).status === 400) {
+      session = null;
+      out = await call();
+    } else throw e;
+  }
+  const result = out.result as { isError?: boolean; content?: { type: string; text?: string }[]; structuredContent?: { rows?: T[] } };
+  const text = result.content?.find((c) => c.type === "text")?.text ?? "";
+  if (result.isError) throw new SankhyaError(text || "Erro na consulta");
+  if (result.structuredContent?.rows) return result.structuredContent.rows;
+  try {
+    return ((JSON.parse(text) as { rows?: T[] }).rows ?? []) as T[];
+  } catch {
+    throw new SankhyaError(`Resposta inesperada do MCP: ${text.slice(0, 200)}`);
+  }
+}
+
+/** Foto do produto: o MCP só devolve dados de views (sem imagens). O promotor fotografa na loja. */
+export async function sankhyaProductImage(_codprod: number): Promise<{ bytes: ArrayBuffer; type: string } | null> {
+  return null;
 }

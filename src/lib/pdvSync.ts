@@ -5,6 +5,15 @@ import { sankhyaProductImage, sankhyaQuery } from "./sankhya";
 // Venda de site/marketplace fica fora da base de comparação (o PDV é loja física)
 const MARKETPLACE_TOPS = "3225, 3226";
 
+/** Usa a view do TI (AD_VW_MERCH_*); se ela ainda não existir, a consulta direta equivalente. */
+async function viewOr(viewSql: string, rawSql: string) {
+  try {
+    return await sankhyaQuery(viewSql);
+  } catch {
+    return sankhyaQuery(rawSql);
+  }
+}
+
 const num = (v: unknown) => (v === null || v === undefined || v === "" ? 0 : Number(v));
 const txt = (v: unknown) => (v === null || v === undefined ? null : String(v).trim() || null);
 
@@ -12,7 +21,10 @@ const txt = (v: unknown) => (v === null || v === undefined ? null : String(v).tr
 export async function refreshPartner(db: SupabaseClient, codparc: number) {
   if (!Number.isInteger(codparc) || codparc <= 0) throw new Error("Código de parceiro inválido");
 
-  const [p] = await sankhyaQuery(`
+  const [p] = await viewOr(
+    `SELECT CODPARC, NOMEPARC, RAZAOSOCIAL, ENDERECO, COMPLEMENTO, BAIRRO NOMEBAI, CIDADE NOMECID, UF, CEP, TELEFONE, VENDEDOR, KEY_ACCOUNT
+       FROM AD_VW_MERCH_PARCEIRO WHERE CODPARC = ${codparc}`,
+    `
     SELECT P.CODPARC, P.NOMEPARC, P.RAZAOSOCIAL, E.NOMEEND, P.NUMEND, P.COMPLEMENTO, B.NOMEBAI, C.NOMECID, U.UF, P.CEP,
            P.TELEFONE, V.APELIDO VENDEDOR,
            (SELECT MAX(N.KEY_ACCOUNT) FROM AD_VW_COM_NOTAS N WHERE N.CODPARC = P.CODPARC) KEY_ACCOUNT
@@ -22,10 +34,11 @@ export async function refreshPartner(db: SupabaseClient, codparc: number) {
       LEFT JOIN TSICID C ON C.CODCID = P.CODCID
       LEFT JOIN TSIUFS U ON U.CODUF = C.UF
       LEFT JOIN TGFVEN V ON V.CODVEND = P.CODVEND
-     WHERE P.CODPARC = ${codparc}`);
+     WHERE P.CODPARC = ${codparc}`,
+  );
   if (!p) throw new Error(`Parceiro ${codparc} não encontrado no Sankhya`);
 
-  const rua = [txt(p.NOMEEND), txt(p.NUMEND)].filter(Boolean).join(", ");
+  const rua = txt(p.ENDERECO) ?? [txt(p.NOMEEND), txt(p.NUMEND)].filter(Boolean).join(", ");
   const partner = {
     codparc,
     nome: txt(p.NOMEPARC) ?? `Parceiro ${codparc}`,
@@ -41,13 +54,19 @@ export async function refreshPartner(db: SupabaseClient, codparc: number) {
     updated_at: new Date().toISOString(),
   };
 
-  const months = await sankhyaQuery(`
+  const months = await viewOr(
+    `SELECT MES, VALOR, NOTAS FROM AD_VW_MERCH_VENDAS_MES WHERE CODPARC = ${codparc}`,
+    `
     SELECT TO_CHAR(TRUNC(N.DATA, 'MM'), 'YYYY-MM') MES, SUM(N.VALOR_NOTA) VALOR, COUNT(*) NOTAS
       FROM AD_VW_COM_NOTAS N
      WHERE N.CODPARC = ${codparc} AND N.DATA >= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -24)
-     GROUP BY TRUNC(N.DATA, 'MM')`);
+     GROUP BY TRUNC(N.DATA, 'MM')`,
+  );
 
-  const items = await sankhyaQuery(`
+  const items = await viewOr(
+    `SELECT * FROM (SELECT CODPROD, DESCRPROD, REFERENCIA, MARCA, VALOR, QTD, TEM_FOTO TEMFOTO
+       FROM AD_VW_MERCH_PRODUTOS_12M WHERE CODPARC = ${codparc} ORDER BY VALOR DESC) FETCH FIRST 300 ROWS ONLY`,
+    `
     SELECT * FROM (
       SELECT I.CODPROD, P.DESCRPROD, P.REFERENCIA, P.MARCA, SUM(I.VLRTOT) VALOR, SUM(I.QTDNEG) QTD,
              CASE WHEN P.IMAGEM IS NULL THEN 'N' ELSE 'S' END TEMFOTO
@@ -57,7 +76,8 @@ export async function refreshPartner(db: SupabaseClient, codparc: number) {
        WHERE N.CODPARC = ${codparc} AND N.DATA >= ADD_MONTHS(SYSDATE, -12)
        GROUP BY I.CODPROD, P.DESCRPROD, P.REFERENCIA, P.MARCA, CASE WHEN P.IMAGEM IS NULL THEN 'N' ELSE 'S' END
        ORDER BY VALOR DESC
-    ) FETCH FIRST 300 ROWS ONLY`);
+    ) FETCH FIRST 300 ROWS ONLY`,
+  );
 
   // Curva ABC: A até 80% do valor acumulado, B até 95%, C o resto
   const total = items.reduce((s, i) => s + num(i.VALOR), 0) || 1;
@@ -121,11 +141,14 @@ async function copyErpPhotos(db: SupabaseClient, codprods: number[]) {
 
 /** Vendas mensais de toda a base de lojas (24 meses), para comparar o crescimento. */
 export async function refreshBase(db: SupabaseClient) {
-  const rows = await sankhyaQuery(`
+  const rows = await viewOr(
+    `SELECT MES, VALOR, CLIENTES FROM AD_VW_MERCH_BASE_MES`,
+    `
     SELECT TO_CHAR(TRUNC(N.DATA, 'MM'), 'YYYY-MM') MES, SUM(N.VALOR_NOTA) VALOR, COUNT(DISTINCT N.CODPARC) CLIENTES
       FROM AD_VW_COM_NOTAS N
      WHERE N.DATA >= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -24) AND N.CODTIPOPER NOT IN (${MARKETPLACE_TOPS})
-     GROUP BY TRUNC(N.DATA, 'MM')`);
+     GROUP BY TRUNC(N.DATA, 'MM')`,
+  );
   if (!rows.length) return 0;
   const { error } = await db
     .from("pdv_base_monthly")
