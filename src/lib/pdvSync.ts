@@ -5,12 +5,16 @@ import { sankhyaProductImage, sankhyaQuery } from "./sankhya";
 // Venda de site/marketplace fica fora da base de comparação (o PDV é loja física)
 const MARKETPLACE_TOPS = "3225, 3226";
 
-/** Usa a view do TI (AD_VW_MERCH_*); se ela ainda não existir, a consulta direta equivalente. */
+/** Usa a view do TI (AD_VW_GPDV_*, a única liberada para o app); a consulta direta é só reserva. */
 async function viewOr(viewSql: string, rawSql: string) {
   try {
     return await sankhyaQuery(viewSql);
-  } catch {
-    return sankhyaQuery(rawSql);
+  } catch (viewError) {
+    try {
+      return await sankhyaQuery(rawSql);
+    } catch {
+      throw viewError;
+    }
   }
 }
 
@@ -23,7 +27,7 @@ export async function refreshPartner(db: SupabaseClient, codparc: number) {
 
   const [p] = await viewOr(
     `SELECT CODPARC, NOMEPARC, RAZAOSOCIAL, ENDERECO, COMPLEMENTO, BAIRRO NOMEBAI, CIDADE NOMECID, UF, CEP, TELEFONE, VENDEDOR, KEY_ACCOUNT
-       FROM AD_VW_MERCH_PARCEIRO WHERE CODPARC = ${codparc}`,
+       FROM AD_VW_GPDV_PARCEIRO WHERE CODPARC = ${codparc}`,
     `
     SELECT P.CODPARC, P.NOMEPARC, P.RAZAOSOCIAL, E.NOMEEND, P.NUMEND, P.COMPLEMENTO, B.NOMEBAI, C.NOMECID, U.UF, P.CEP,
            P.TELEFONE, V.APELIDO VENDEDOR,
@@ -55,7 +59,7 @@ export async function refreshPartner(db: SupabaseClient, codparc: number) {
   };
 
   const months = await viewOr(
-    `SELECT MES, VALOR, NOTAS FROM AD_VW_MERCH_VENDAS_MES WHERE CODPARC = ${codparc}`,
+    `SELECT MES, VALOR, NOTAS FROM AD_VW_GPDV_VENDAS_MES WHERE CODPARC = ${codparc}`,
     `
     SELECT TO_CHAR(TRUNC(N.DATA, 'MM'), 'YYYY-MM') MES, SUM(N.VALOR_NOTA) VALOR, COUNT(*) NOTAS
       FROM AD_VW_COM_NOTAS N
@@ -65,7 +69,7 @@ export async function refreshPartner(db: SupabaseClient, codparc: number) {
 
   const items = await viewOr(
     `SELECT * FROM (SELECT CODPROD, DESCRPROD, REFERENCIA, MARCA, VALOR, QTD, TEM_FOTO TEMFOTO
-       FROM AD_VW_MERCH_PRODUTOS_12M WHERE CODPARC = ${codparc} ORDER BY VALOR DESC) FETCH FIRST 300 ROWS ONLY`,
+       FROM AD_VW_GPDV_PRODUTOS_12M WHERE CODPARC = ${codparc} ORDER BY VALOR DESC) FETCH FIRST 300 ROWS ONLY`,
     `
     SELECT * FROM (
       SELECT I.CODPROD, P.DESCRPROD, P.REFERENCIA, P.MARCA, SUM(I.VLRTOT) VALOR, SUM(I.QTDNEG) QTD,
@@ -142,7 +146,7 @@ async function copyErpPhotos(db: SupabaseClient, codprods: number[]) {
 /** Vendas mensais de toda a base de lojas (24 meses), para comparar o crescimento. */
 export async function refreshBase(db: SupabaseClient) {
   const rows = await viewOr(
-    `SELECT MES, VALOR, CLIENTES FROM AD_VW_MERCH_BASE_MES`,
+    `SELECT MES, VALOR, CLIENTES FROM AD_VW_GPDV_BASE_MES`,
     `
     SELECT TO_CHAR(TRUNC(N.DATA, 'MM'), 'YYYY-MM') MES, SUM(N.VALOR_NOTA) VALOR, COUNT(DISTINCT N.CODPARC) CLIENTES
       FROM AD_VW_COM_NOTAS N
