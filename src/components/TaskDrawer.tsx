@@ -14,6 +14,7 @@ import type { CampaignResult } from "@/lib/campaign";
 import type { SocialChannel } from "@/lib/social";
 import SocialPost from "./SocialPost";
 import { PdvPanel, type PdvBundle } from "./Pdv";
+import { LaunchPanel } from "./Launch";
 
 type Message = Omit<Comment, "profiles">;
 
@@ -50,6 +51,7 @@ export default function TaskDrawer({
   campaign,
   social,
   pdv,
+  launch,
   statuses,
   actions,
   onClose,
@@ -59,6 +61,7 @@ export default function TaskDrawer({
   campaign?: { results: CampaignResult[]; onSaved: (r: CampaignResult) => void };
   social?: SocialChannel[];
   pdv?: PdvBundle;
+  launch?: boolean;
   statuses: Status[];
   actions: TaskActions;
   onClose: () => void;
@@ -159,7 +162,7 @@ export default function TaskDrawer({
         </div>
 
         {/* Dados, resultados e publicação rolam juntos; o chat fica sempre visível embaixo */}
-        <div className={`shrink-0 md:overflow-y-auto ${social || campaign || pdv || task.source === "form" ? "md:max-h-[62vh]" : ""}`}>
+        <div className={`shrink-0 md:overflow-y-auto ${social || campaign || pdv || launch || task.source === "form" ? "md:max-h-[62vh]" : ""}`}>
         {/* Dados da tarefa */}
         <div className="space-y-4 border-b px-4 py-4 sm:px-5">
           <textarea
@@ -253,6 +256,7 @@ export default function TaskDrawer({
           </div>
         )}
 
+        {launch && <LaunchPanel task={task} statuses={statuses} actions={actions} />}
         {pdv && <PdvPanel task={task} statuses={statuses} actions={actions} bundle={pdv} />}
         {social && (
           <div className="border-b px-5 py-3">

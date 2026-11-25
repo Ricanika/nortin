@@ -38,7 +38,7 @@ export interface List {
   /** link da pasta no OneDrive/SharePoint/Drive */
   folder_url: string | null;
   /** "campaign": resultados Google/Meta; "content": posts publicados pelo GHL */
-  kind: "tasks" | "campaign" | "content" | "pdv";
+  kind: "tasks" | "campaign" | "content" | "pdv" | "launch";
   /** formulário público de briefing (link /f/<form_token>) */
   form_enabled: boolean;
   form_token: string | null;
@@ -84,6 +84,8 @@ export interface Task {
   /** Gestão de PDV: código do parceiro no Sankhya e dados da visita */
   pdv_codparc: number | null;
   pdv: import("./pdv").PdvData;
+  /** Lançamento de produto: trilha, dossiê, portões e cadastro */
+  launch: import("./launch").LaunchData;
   /** user_ids dos responsáveis (vem de task_assignees) */
   assignees: string[];
 }

@@ -16,6 +16,8 @@ import { ChannelRows, ContentCells, EngagementValue, MobileChannelRows } from ".
 import NetworkBadge from "./NetworkBadge";
 import PostCover from "./PostCover";
 import { PdvCells, PdvMobileLine, type PdvBundle } from "./Pdv";
+import { TrilhaBadge } from "./Launch";
+import { useListKind } from "./PostCover";
 
 type SortKey =
   | "name"
@@ -66,6 +68,7 @@ export default function ListView({
       return n;
     });
   const { members } = useWorkspace();
+  const listKind = useListKind();
   const cols = campaign ? COLS_CAMPAIGN : social ? COLS_CONTENT : pdv ? COLS_PDV : COLS;
 
   // Ordenação pelos títulos das colunas: ▲ crescente → ▼ decrescente → ordem manual.
@@ -241,6 +244,7 @@ export default function ListView({
                         }`}
                       >
                         {social && <PostCover media={task.media} />}
+                        {listKind === "launch" && <TrilhaBadge t={task.launch?.trilha} />}
                         {task.source === "form" && (
                           <span className="mr-1" title={`Briefing de ${task.requester_name ?? "solicitante"}`}>
                             📝
@@ -379,6 +383,11 @@ function MobileRow({
             className={`line-clamp-2 text-left text-[15px] leading-snug ${isDone && !content ? "text-slate-400 line-through" : "text-slate-800"}`}
           >
             {task.source === "form" && <span className="mr-1">📝</span>}
+            {task.launch?.trilha && (
+              <span className="mr-1.5 inline-block align-[-3px]">
+                <TrilhaBadge t={task.launch.trilha} />
+              </span>
+            )}
             {task.title}
           </button>
           <div className="mt-1.5 flex flex-wrap items-center gap-1">

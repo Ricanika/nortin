@@ -171,6 +171,8 @@ export default function Sidebar({
         ? await createClient().rpc("make_content_list", { p_list: list.id })
         : kind === "pdv"
           ? await createClient().rpc("make_pdv_list", { p_list: list.id })
+          : kind === "launch"
+            ? await createClient().rpc("make_launch_list", { p_list: list.id })
           : await createClient().from("lists").update({ kind }).eq("id", list.id);
     if (error) {
       setLists((prev) => prev.map((l) => (l.id === list.id ? list : l)));
@@ -183,6 +185,8 @@ export default function Sidebar({
           ? `"${list.name}" agora é lista de conteúdo 📱`
           : kind === "pdv"
             ? `"${list.name}" agora é lista de PDV 🏪`
+            : kind === "launch"
+              ? `"${list.name}" agora é lista de lançamento de produtos 🚀`
           : `"${list.name}" voltou a ser lista comum`,
     );
     notifyStructureChanged();
@@ -406,9 +410,9 @@ export default function Sidebar({
                           {list.kind !== "tasks" ? (
                             <span
                               className="w-3.5 shrink-0 text-center text-xs"
-                              title={list.kind === "campaign" ? "Lista de campanha" : list.kind === "pdv" ? "Lista de PDV" : "Lista de conteúdo"}
+                              title={list.kind === "campaign" ? "Lista de campanha" : list.kind === "pdv" ? "Lista de PDV" : list.kind === "launch" ? "Lançamento de produtos" : "Lista de conteúdo"}
                             >
-                              {list.kind === "campaign" ? "📈" : list.kind === "pdv" ? "🏪" : "📱"}
+                              {list.kind === "campaign" ? "📈" : list.kind === "pdv" ? "🏪" : list.kind === "launch" ? "🚀" : "📱"}
                             </span>
                           ) : (
                           <svg
@@ -446,6 +450,7 @@ export default function Sidebar({
                                   ["content", "📱 Tornar lista de conteúdo"],
                                   ["campaign", "📈 Tornar lista de campanha"],
                                   ["pdv", "🏪 Tornar lista de PDV"],
+                                  ["launch", "🚀 Tornar lista de lançamento"],
                                   ["tasks", "☰ Voltar a lista comum"],
                                 ] as const
                               )

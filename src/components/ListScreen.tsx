@@ -20,7 +20,7 @@ import { useToast } from "./Toast";
 import { notifyStructureChanged, STRUCTURE_EVENT, toggleTarget } from "@/lib/tasks";
 
 export type TaskPatch = Partial<
-  Pick<Task, "title" | "description" | "status_id" | "priority" | "due_date" | "due_time" | "pdv" | "pdv_codparc" | "position" | "recurrence" | "folder_url" | "media" | "post_type" | "cta_url">
+  Pick<Task, "title" | "description" | "status_id" | "priority" | "due_date" | "due_time" | "pdv" | "pdv_codparc" | "launch" | "position" | "recurrence" | "folder_url" | "media" | "post_type" | "cta_url">
 >;
 
 export interface TaskActions {
@@ -574,6 +574,7 @@ export default function ListScreen({ listId }: { listId: string }) {
           campaign={isCampaign ? { results: results.filter((r) => r.task_id === openTask.id), onSaved: saveResult } : undefined}
           social={isContent ? channels.filter((c) => c.task_id === openTask.id) : undefined}
           pdv={isPdv ? pdvBundle : undefined}
+          launch={list?.kind === "launch"}
           statuses={sortedStatuses}
           actions={actions}
           onClose={() => setParam("t", null)}

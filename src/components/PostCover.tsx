@@ -4,7 +4,7 @@ import { createContext, useContext } from "react";
 import type { Task } from "@/lib/types";
 
 /** Tipo da lista aberta, para os cartões e linhas se adaptarem (ex.: conteúdo não risca o publicado). */
-export const ListKindContext = createContext<"tasks" | "campaign" | "content" | "pdv">("tasks");
+export const ListKindContext = createContext<"tasks" | "campaign" | "content" | "pdv" | "launch">("tasks");
 export const useListKind = () => useContext(ListKindContext);
 
 /** Capinha do post: 1ª imagem ou o 1º quadro do vídeo; mostra quantas mídias tem. */
