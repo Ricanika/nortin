@@ -13,10 +13,22 @@ interface Opt {
 }
 
 /**
- * Move a tarefa para outra lista (de qualquer Space do workspace).
+ * Move uma ou várias tarefas para outra lista (de qualquer Space do workspace).
  * O status vai para o de mesmo nome na lista nova; se não existir, o do mesmo tipo.
  */
-export default function MoveTask({ taskId, listId, onMoved }: { taskId: string; listId: string; onMoved: () => void }) {
+export default function MoveTask({
+  taskIds,
+  listId,
+  onMoved,
+  trigger = "↪ Mover",
+  triggerClassName = "text-slate-400 hover:text-violet-700",
+}: {
+  taskIds: string[];
+  listId: string;
+  onMoved: (ids: string[]) => void;
+  trigger?: React.ReactNode;
+  triggerClassName?: string;
+}) {
   const supabase = useMemo(() => createClient(), []);
   const { workspace } = useWorkspace();
   const toast = useToast();
@@ -40,10 +52,17 @@ export default function MoveTask({ taskId, listId, onMoved }: { taskId: string; 
   }, [supabase, workspace.id, listId]);
 
   async function move(o: Opt) {
-    const { error } = await supabase.rpc("move_task", { p_task: taskId, p_list: o.id });
-    if (error) return toast(`Não deu para mover: ${error.message}`);
-    toast(`Tarefa movida para ${o.space.name} / ${o.name}`);
-    onMoved();
+    const results = await Promise.all(
+      taskIds.map((id) => supabase.rpc("move_task", { p_task: id, p_list: o.id }).then(({ error }) => ({ id, error }))),
+    );
+    const ok = results.filter((r) => !r.error).map((r) => r.id);
+    const failed = results.length - ok.length;
+    if (ok.length) onMoved(ok);
+    toast(
+      failed
+        ? `${ok.length} movida(s), ${failed} com erro: ${results.find((r) => r.error)?.error?.message}`
+        : `${ok.length === 1 ? "Tarefa movida" : `${ok.length} tarefas movidas`} para ${o.space.name} / ${o.name}`,
+    );
   }
 
   const filtered = (opts ?? []).filter((o) => `${o.space.name} ${o.name}`.toLowerCase().includes(q.toLowerCase()));
@@ -53,7 +72,7 @@ export default function MoveTask({ taskId, listId, onMoved }: { taskId: string; 
   }));
 
   return (
-    <Popover label="Mover para outra lista" width={260} triggerClassName="text-slate-400 hover:text-violet-700" trigger="↪ Mover">
+    <Popover label="Mover para outra lista" width={260} triggerClassName={triggerClassName} trigger={trigger}>
       {(close) => (
         <div className="max-h-80 overflow-y-auto">
           <div className="sticky top-0 border-b bg-white p-2">

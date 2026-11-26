@@ -153,7 +153,14 @@ export default function TaskDrawer({
             >
               {isDone ? "✓ Concluída" : "✓ Concluir"}
             </button>
-            <MoveTask taskId={task.id} listId={task.list_id} onMoved={onClose} />
+            <MoveTask
+              taskIds={[task.id]}
+              listId={task.list_id}
+              onMoved={(ids) => {
+                actions.moved(ids);
+                onClose();
+              }}
+            />
             <button onClick={() => actions.remove(task.id)} className="text-slate-400 hover:text-red-600">
               Excluir
             </button>

@@ -7,7 +7,8 @@ body {
 }
 
 /* Tarefa aberta: esconde os botões flutuantes para não cobrir o envio do chat */
-body[data-drawer-open] .quick-fab {
+body[data-drawer-open] .quick-fab,
+body[data-selecting] .quick-fab {
   display: none;
 }
 

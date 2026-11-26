@@ -15,6 +15,8 @@ import { memberName } from "@/lib/types";
 import { ChannelRows, ContentCells, EngagementValue, MobileChannelRows } from "./ContentMetrics";
 import NetworkBadge from "./NetworkBadge";
 import PostCover from "./PostCover";
+import MoveTask from "./MoveTask";
+import Popover from "./Popover";
 import { PdvCells, PdvMobileLine, type PdvBundle } from "./Pdv";
 import { TrilhaBadge } from "./Launch";
 import { useListKind } from "./PostCover";
@@ -59,6 +61,31 @@ export default function ListView({
   pdv?: PdvBundle;
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // Seleção de várias tarefas para mover, mudar status ou excluir de uma vez
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const toggleSel = (id: string) =>
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  const selecting = selected.size > 0;
+  useEffect(() => {
+    // some tarefa que saiu da lista sai da seleção
+    setSelected((prev) => {
+      const ids = new Set(tasks.map((t) => t.id));
+      const n = new Set([...prev].filter((id) => ids.has(id)));
+      return n.size === prev.size ? prev : n;
+    });
+  }, [tasks]);
+  useEffect(() => {
+    if (selecting) document.body.dataset.selecting = "1";
+    else delete document.body.dataset.selecting;
+    return () => {
+      delete document.body.dataset.selecting;
+    };
+  }, [selecting]);
   const [openChannels, setOpenChannels] = useState<Set<string>>(new Set());
   const toggleChannels = (id: string) =>
     setOpenChannels((prev) => {
@@ -160,8 +187,66 @@ export default function ListView({
     return out.filter(([, l]) => l.length > 0);
   };
 
+  const selIds = [...selected];
+  const bulkBar = selecting && (
+    <div className="fixed inset-x-3 bottom-4 z-40 mx-auto flex max-w-xl items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-sm text-white shadow-2xl sm:gap-2">
+      <span className="whitespace-nowrap font-semibold tabular-nums">
+        {selected.size}
+        <span className="hidden sm:inline"> {selected.size === 1 ? "selecionada" : "selecionadas"}</span>
+        <span className="sm:hidden"> sel.</span>
+      </span>
+      <span className="flex-1" />
+      <MoveTask
+        taskIds={selIds}
+        listId={statuses[0]?.list_id ?? ""}
+        onMoved={(ids) => {
+          actions.moved(ids);
+          setSelected(new Set());
+        }}
+        trigger={
+          <>
+            ↪ Mover<span className="hidden sm:inline"> para…</span>
+          </>
+        }
+        triggerClassName="rounded-md bg-violet-600 px-3 py-1.5 font-medium hover:bg-violet-500"
+      />
+      <Popover label="Mudar status" width={200} trigger="Status ▾" triggerClassName="rounded-md bg-white/10 px-3 py-1.5 hover:bg-white/20">
+        {(close) =>
+          statuses.map((s) => (
+            <button
+              key={s.id}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-slate-800 hover:bg-slate-50"
+              onClick={() => {
+                close();
+                for (const id of selIds) void actions.update(id, { status_id: s.id });
+                setSelected(new Set());
+              }}
+            >
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
+              {s.name}
+            </button>
+          ))
+        }
+      </Popover>
+      <button
+        onClick={() => {
+          if (!window.confirm(`Excluir ${selected.size} ${selected.size === 1 ? "tarefa" : "tarefas"}?`)) return;
+          for (const id of selIds) void actions.remove(id);
+          setSelected(new Set());
+        }}
+        className="rounded-md bg-white/10 px-3 py-1.5 hover:bg-red-600"
+      >
+        🗑
+      </button>
+      <button onClick={() => setSelected(new Set())} aria-label="Limpar seleção" className="rounded-md px-2 py-1.5 text-white/70 hover:text-white">
+        ✕
+      </button>
+    </div>
+  );
+
   return (
     <div className="space-y-6 p-4 pb-28 sm:p-6">
+      {bulkBar}
       {statuses.map((status) => {
         const group = sorted(tasks.filter((t) => t.status_id === status.id));
         const isDone = status.type === "done" || status.type === "closed";
@@ -169,7 +254,7 @@ export default function ListView({
           <section key={status.id}>
             <button
               onClick={() => setCollapsed({ ...collapsed, [status.id]: !collapsed[status.id] })}
-              className="mb-2 flex items-center gap-2 text-sm"
+              className="mb-2 inline-flex items-center gap-2 text-sm"
             >
               <span className="w-3 text-slate-400">{collapsed[status.id] ? "▸" : "▾"}</span>
               <span className="rounded px-2 py-0.5 text-xs font-semibold uppercase text-white" style={{ background: status.color }}>
@@ -177,6 +262,23 @@ export default function ListView({
               </span>
               <span className="text-slate-400">{group.length}</span>
             </button>
+            {group.length > 0 && (
+              <label className={`mb-2 ml-3 inline-flex cursor-pointer items-center gap-1 text-xs text-slate-400 ${selecting ? "" : "opacity-0 hover:opacity-100 focus-within:opacity-100"}`}>
+                <input
+                  type="checkbox"
+                  checked={group.every((t) => selected.has(t.id))}
+                  onChange={(e) =>
+                    setSelected((prev) => {
+                      const n = new Set(prev);
+                      for (const t of group) e.target.checked ? n.add(t.id) : n.delete(t.id);
+                      return n;
+                    })
+                  }
+                  className="h-3.5 w-3.5 accent-violet-600"
+                />
+                selecionar todas
+              </label>
+            )}
 
             {!collapsed[status.id] && (
               <div className="md:ml-5 md:overflow-x-auto">
@@ -231,11 +333,20 @@ export default function ListView({
                     channels={social?.filter((c) => c.task_id === task.id)}
                     content={Boolean(social)}
                     pdv={pdv}
+                    selected={selected.has(task.id)}
+                    onSelect={() => toggleSel(task.id)}
                   />
                   <div
                     className={`group hidden md:grid ${cols} items-center border-b px-2 py-1.5 text-sm hover:bg-slate-50`}
                   >
                     <div className="flex min-w-0 items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(task.id)}
+                        onChange={() => toggleSel(task.id)}
+                        aria-label={`Selecionar ${task.title}`}
+                        className={`-ml-1 h-3.5 w-3.5 shrink-0 accent-violet-600 ${selecting ? "" : "opacity-0 group-hover:opacity-100 focus:opacity-100"}`}
+                      />
                       <CompleteToggle done={isDone} color={status.color} onToggle={() => actions.toggleDone(task.id)} />
                       <button
                         onClick={() => actions.open(task.id)}
@@ -352,6 +463,8 @@ function MobileRow({
   channels,
   content,
   pdv,
+  selected,
+  onSelect,
 }: {
   task: Task;
   statuses: Status[];
@@ -361,6 +474,8 @@ function MobileRow({
   channels?: SocialChannel[];
   content: boolean;
   pdv?: PdvBundle;
+  selected: boolean;
+  onSelect: () => void;
 }) {
   const { members } = useWorkspace();
   const [open, setOpen] = useState(false);
@@ -368,7 +483,14 @@ function MobileRow({
   const t = contentTotals(published);
   return (
     <div className="border-b md:hidden">
-      <div className="flex items-start gap-3 px-1 py-2.5">
+      <div className={`flex items-start gap-3 px-1 py-2.5 ${selected ? "bg-violet-50" : ""}`}>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onSelect}
+          aria-label={`Selecionar ${task.title}`}
+          className="mt-1.5 h-4 w-4 shrink-0 accent-violet-600"
+        />
         <div className="pt-0.5">
           <CompleteToggle done={isDone} color={color} onToggle={() => actions.toggleDone(task.id)} size={22} />
         </div>

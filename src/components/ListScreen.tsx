@@ -30,6 +30,8 @@ export interface TaskActions {
   open: (id: string) => void;
   assign: (taskId: string, userId: string, assigned: boolean) => Promise<void>;
   toggleDone: (id: string) => Promise<void>;
+  /** Tarefas que saíram desta lista (movidas para outra) */
+  moved: (ids: string[]) => void;
 }
 
 const TASK_SELECT = "*, task_assignees(user_id)";
@@ -279,6 +281,10 @@ export default function ListScreen({ listId }: { listId: string }) {
   }, [isContent, tasks, channels]);
 
   const actions: TaskActions = {
+    moved(ids) {
+      const gone = new Set(ids);
+      setTasks((prev) => prev.filter((t) => !gone.has(t.id)));
+    },
     async create(title, statusId, extra, assignees = []) {
       const last = tasks.filter((t) => t.status_id === statusId).sort(byPosition).at(-1);
       const { data, error } = await supabase
