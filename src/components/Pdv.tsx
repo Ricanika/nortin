@@ -71,6 +71,9 @@ export function PdvCells({ task, bundle }: { task: Task; bundle: PdvBundle }) {
       <span className="truncate pr-2 text-xs tabular-nums text-slate-500" title={task.pdv_codparc ? bundle.partners[task.pdv_codparc]?.nome : undefined}>
         {task.pdv_codparc ?? <span className="text-slate-300">sem código</span>}
       </span>
+      <span className="truncate pr-2 text-xs text-slate-600" title="Representante (vendedor do cliente no Sankhya)">
+        {(task.pdv_codparc && bundle.partners[task.pdv_codparc]?.vendedor) || <span className="text-slate-300">—</span>}
+      </span>
       <span className="pr-2 text-right text-xs tabular-nums">{imp ? brl(imp.antes.media) : "—"}</span>
       <span className="pr-2 text-right text-xs tabular-nums">{imp?.depois ? brl(imp.depois.media) : <span className="text-slate-300">aguardando</span>}</span>
       <span className={`pr-2 text-right text-xs font-semibold tabular-nums ${tone(imp?.vendas)}`}>{pctLabel(imp?.vendas)}</span>
@@ -86,6 +89,7 @@ export function PdvMobileLine({ task, bundle }: { task: Task; bundle: PdvBundle 
   return (
     <div className="mt-1 flex flex-wrap gap-x-2 text-xs tabular-nums text-slate-500">
       <span>cód. {task.pdv_codparc}</span>
+      {bundle.partners[task.pdv_codparc]?.vendedor && <span>👤 {bundle.partners[task.pdv_codparc].vendedor}</span>}
       {imp && <span>antes {brl(imp.antes.media)}/mês</span>}
       {imp?.depois ? (
         <>
@@ -235,7 +239,7 @@ export function PdvPanel({
                 📞 {partner.telefone}
               </a>
             )}
-            {partner.vendedor && <span className="text-slate-500">Vendedor: {partner.vendedor}</span>}
+            {partner.vendedor && <span className="text-slate-500">Representante: {partner.vendedor}</span>}
             {partner.key_account && <span className="text-slate-500">Key account: {partner.key_account}</span>}
           </div>
         </div>

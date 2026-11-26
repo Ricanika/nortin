@@ -22,6 +22,7 @@ import { TrilhaBadge } from "./Launch";
 import { useListKind } from "./PostCover";
 
 type SortKey =
+  | "rep"
   | "name"
   | "assignees"
   | "priority"
@@ -36,7 +37,7 @@ type SortKey =
 
 const COLS = "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_32px] min-w-[700px]";
 const COLS_PDV =
-  "grid-cols-[minmax(200px,1fr)_96px_150px_90px_104px_64px_100px_100px_80px_90px_32px] min-w-[1100px]";
+  "grid-cols-[minmax(200px,1fr)_96px_150px_90px_104px_64px_120px_100px_100px_80px_90px_32px] min-w-[1220px]";
 // Lista de campanha: + Plataformas, Impressões, Cliques, CPC, Gasto (larguras iguais às do CampaignCells)
 const COLS_CAMPAIGN =
   "grid-cols-[minmax(200px,1fr)_96px_130px_100px_96px_52px_84px_72px_78px_96px_32px] min-w-[1130px]";
@@ -141,6 +142,10 @@ export default function ListView({
         const tot = contentTotals(ch);
         // likes = coluna Engajamento (curtidas + comentários + compartilhamentos); engagement = Taxa %
         return key === "engagement" ? tot.engagement : key === "likes" ? tot.interactions : tot.impressions || null;
+      }
+      case "rep": {
+        const v = t.pdv_codparc ? pdv?.partners[t.pdv_codparc]?.vendedor : null;
+        return v ? v.toLocaleLowerCase("pt-BR") : null;
       }
       case "c_impressions":
       case "c_clicks":
@@ -299,6 +304,7 @@ export default function ListView({
                   {pdv && (
                     <>
                       <span>Cód.</span>
+                      {head("rep", "Representante")}
                       <span className="pr-2 text-right">Antes/mês</span>
                       <span className="pr-2 text-right">Depois/mês</span>
                       <span className="pr-2 text-right">Vendas</span>
