@@ -44,7 +44,10 @@ export async function GET(request: NextRequest) {
       report.lojas++;
     } catch (e) {
       report.erros.push(`${c}: ${(e as Error).message}`);
+      // limite de velocidade do MCP: para aqui e deixa o resto para a próxima rodada
+      if ((e as { status?: number }).status === 429) break;
     }
+    await new Promise((r) => setTimeout(r, 800)); // ritmo leve com o Sankhya
   }
   return NextResponse.json(report);
 }

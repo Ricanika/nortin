@@ -54,14 +54,25 @@ async function readRpc(res: Response, id: number) {
   return msg.result;
 }
 
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function rpc(method: string, params: unknown, sessionId?: string) {
   const id = ++rpcId;
-  const res = await fetch(process.env.SANKHYA_MCP_URL!, {
-    method: "POST",
-    headers: headers(sessionId),
-    body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
-    cache: "no-store",
-  });
+  // O MCP do TI limita a velocidade (HTTP 429): espera o tempo pedido e tenta de novo
+  let res: Response | null = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    res = await fetch(process.env.SANKHYA_MCP_URL!, {
+      method: "POST",
+      headers: headers(sessionId),
+      body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
+      cache: "no-store",
+    });
+    if (res.status !== 429) break;
+    const after = Number(res.headers.get("retry-after"));
+    await wait(Number.isFinite(after) && after > 0 ? Math.min(after, 15) * 1000 : 2000 * (attempt + 1));
+  }
+  if (!res) throw new SankhyaError("MCP sem resposta");
+  if (res.status === 429) throw Object.assign(new SankhyaError("O Sankhya está limitando as consultas agora (muitas em pouco tempo). Tente de novo em 1 minuto."), { status: 429 });
   if (res.status === 401 || res.status === 403) throw new SankhyaError(`O MCP recusou a chave do app (HTTP ${res.status})`);
   if (!res.ok) throw Object.assign(new SankhyaError(`MCP HTTP ${res.status}`), { status: res.status });
   return { result: await readRpc(res, id), session: res.headers.get("mcp-session-id") ?? undefined };
