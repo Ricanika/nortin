@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sankhyaProductImage, sankhyaQuery } from "./sankhya";
+import { fullAddress, mapsUrl } from "./pdv";
 
 // Venda de site/marketplace fica fora da base de comparação (o PDV é loja física)
 const MARKETPLACE_TOPS = "3225, 3226";
@@ -159,4 +160,23 @@ export async function refreshBase(db: SupabaseClient) {
     .upsert(rows.map((r) => ({ mes: `${r.MES}-01`, valor: num(r.VALOR), clientes: num(r.CLIENTES) })));
   if (error) throw new Error(error.message);
   return rows.length;
+}
+
+/** Endereço como 1ª mensagem do chat das visitas desse parceiro que ainda não têm (autor: quem criou a visita). */
+export async function addAddressComments(db: SupabaseClient, partner: Awaited<ReturnType<typeof refreshPartner>>) {
+  const addr = fullAddress(partner);
+  if (!addr) return 0;
+  const { data: tasks } = await db.from("tasks").select("id, created_by").eq("pdv_codparc", partner.codparc);
+  let added = 0;
+  for (const t of tasks ?? []) {
+    if (!t.created_by) continue;
+    const { data: existing } = await db.from("comments").select("id").eq("task_id", t.id).ilike("body", `%cód. ${partner.codparc})%`).limit(1);
+    if (existing?.length) continue;
+    const body = [`📍 ${partner.nome} (cód. ${partner.codparc})`, addr, partner.telefone ? `📞 ${partner.telefone}` : null, `🗺️ ${mapsUrl(addr)}`]
+      .filter(Boolean)
+      .join("\n");
+    const { error } = await db.from("comments").insert({ task_id: t.id, author_id: t.created_by, body });
+    if (!error) added++;
+  }
+  return added;
 }

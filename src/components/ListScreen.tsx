@@ -111,20 +111,31 @@ export default function ListScreen({ listId }: { listId: string }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const pdvBundle = usePdvBundle(list?.kind === "pdv", tasks);
   const reloadPdv = pdvBundle.reload;
+  const pdvLoaded = pdvBundle.loaded;
   // Lista de PDV: tarefa criada só com o código ("53") busca o cliente no Sankhya sozinha
   const pdvLookups = useRef(new Set<string>());
   useEffect(() => {
     if (list?.kind !== "pdv") return;
-    for (const t of tasks) {
-      if (t.pdv_codparc || !/^\s*\d+\s*$/.test(t.title) || pdvLookups.current.has(t.id)) continue;
-      pdvLookups.current.add(t.id);
-      void fetch("/api/pdv/partner", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskId: t.id, codparc: Number(t.title.trim()) }),
-      }).then(() => reloadPdv());
-    }
-  }, [list?.kind, tasks, reloadPdv]);
+    // Também: visita com código mas sem dados do cliente (ex.: criada já com o código) busca uma vez
+    const pending = tasks.filter((t) => {
+      if (pdvLookups.current.has(t.id)) return false;
+      if (!t.pdv_codparc) return /^\s*\d+\s*$/.test(t.title);
+      return pdvLoaded && !pdvBundle.partners[t.pdv_codparc];
+    });
+    if (!pending.length) return;
+    for (const t of pending) pdvLookups.current.add(t.id);
+    // uma de cada vez, para não sobrecarregar o Sankhya
+    void (async () => {
+      for (const t of pending) {
+        await fetch("/api/pdv/partner", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ taskId: t.id, codparc: t.pdv_codparc ?? Number(t.title.trim()) }),
+        }).catch(() => undefined);
+        reloadPdv();
+      }
+    })();
+  }, [list?.kind, tasks, reloadPdv, pdvLoaded, pdvBundle.partners]);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
 

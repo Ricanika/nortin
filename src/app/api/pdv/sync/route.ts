@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cronAuthorized } from "@/lib/cronAuth";
 import { sankhyaConfigured } from "@/lib/sankhya";
-import { refreshBase, refreshPartner } from "@/lib/pdvSync";
+import { addAddressComments, refreshBase, refreshPartner } from "@/lib/pdvSync";
 
 export const maxDuration = 60;
 
@@ -24,13 +24,23 @@ export async function GET(request: NextRequest) {
         .map((t) => t.pdv_codparc as number),
     ),
   ];
-  const report = { base: 0, lojas: 0, erros: [] as string[] };
-  report.base = await refreshBase(db).catch((e) => (report.erros.push(`base: ${(e as Error).message}`), 0));
+  // Primeiro as lojas que ainda não têm dados; depois as atualizadas há mais tempo
+  const { data: have } = codes.length
+    ? await db.from("pdv_partners").select("codparc, updated_at").in("codparc", codes)
+    : { data: [] as { codparc: number; updated_at: string }[] };
+  const updated = new Map((have ?? []).map((h) => [h.codparc, h.updated_at]));
+  codes.sort((a, b) => (updated.get(a) ?? "").localeCompare(updated.get(b) ?? ""));
+  const onlyMissing = request.nextUrl.searchParams.get("faltando") === "1";
+  const queue = onlyMissing ? codes.filter((c) => !updated.has(c)) : codes;
+
+  const report = { base: 0, lojas: 0, faltavam: codes.filter((c) => !updated.has(c)).length, erros: [] as string[] };
+  if (!onlyMissing) report.base = await refreshBase(db).catch((e) => (report.erros.push(`base: ${(e as Error).message}`), 0));
   const started = Date.now();
-  for (const c of codes) {
+  for (const c of queue) {
     if (Date.now() - started > 50_000) break; // limite de 60s da Vercel; o resto fica para amanhã
     try {
-      await refreshPartner(db, c);
+      const partner = await refreshPartner(db, c);
+      if (!updated.has(c)) await addAddressComments(db, partner).catch(() => 0);
       report.lojas++;
     } catch (e) {
       report.erros.push(`${c}: ${(e as Error).message}`);

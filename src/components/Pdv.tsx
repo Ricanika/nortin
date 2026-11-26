@@ -23,6 +23,8 @@ import type { TaskActions } from "./ListScreen";
 import { useWorkspace } from "./WorkspaceContext";
 
 export interface PdvBundle {
+  /** já leu do banco ao menos uma vez (evita buscar no Sankhya antes de saber o que falta) */
+  loaded: boolean;
   partners: Record<number, PdvPartner>;
   sales: PdvMonth[];
   base: PdvBaseMonth[];
@@ -37,7 +39,7 @@ export function usePdvBundle(enabled: boolean, tasks: Task[]): PdvBundle {
     [tasks],
   );
   const key = codes.join(",");
-  const [state, setState] = useState<Omit<PdvBundle, "reload">>({ partners: {}, sales: [], base: [] });
+  const [state, setState] = useState<Omit<PdvBundle, "reload">>({ loaded: false, partners: {}, sales: [], base: [] });
   const [tick, setTick] = useState(0);
   useEffect(() => {
     if (!enabled) return;
@@ -48,6 +50,7 @@ export function usePdvBundle(enabled: boolean, tasks: Task[]): PdvBundle {
       supabase.from("pdv_base_monthly").select("*"),
     ]).then(([p, s, b]) =>
       setState({
+        loaded: true,
         partners: Object.fromEntries(((p.data ?? []) as PdvPartner[]).map((x) => [x.codparc, x])),
         sales: (s.data ?? []) as PdvMonth[],
         base: (b.data ?? []) as PdvBaseMonth[],
