@@ -22,6 +22,7 @@ import { parseQuick } from "@/lib/quickParse";
 import { AvatarStack, DueDate, NewTaskInput, PriorityFlag } from "./TaskBits";
 import { CompleteToggle, DuePicker } from "./InlineEditors";
 import PostCover, { useListKind } from "./PostCover";
+import { repOf, usePdvContext } from "./Pdv";
 import { useWorkspace } from "./WorkspaceContext";
 
 type Columns = Record<string, string[]>; // statusId -> taskIds em ordem
@@ -244,6 +245,8 @@ function Card({
 }) {
   const { members } = useWorkspace();
   const kind = useListKind();
+  const pdv = usePdvContext();
+  const rep = kind === "pdv" ? repOf(task, pdv) : null;
   return (
     <div
       className={`cursor-pointer rounded-md border bg-white p-3 text-sm shadow-sm hover:border-violet-300 ${
@@ -261,7 +264,15 @@ function Card({
             <CompleteToggle done={done} onToggle={() => actions.toggleDone(task.id)} size={16} />
           </span>
         )}
-        <p className={`min-w-0 flex-1 break-words ${done && kind !== "content" ? "text-slate-400 line-through" : ""}`}>{task.title}</p>
+        <div className="min-w-0 flex-1">
+          <p className={`break-words ${done && kind !== "content" ? "text-slate-400 line-through" : ""}`}>{task.title}</p>
+          {kind === "pdv" && (
+            <p className="mt-0.5 truncate text-xs text-slate-500" title="Representante (vendedor do cliente no Sankhya)">
+              👤 {rep ?? <span className="text-slate-300">representante —</span>}
+              {task.pdv_codparc ? <span className="text-slate-400"> · cód. {task.pdv_codparc}</span> : null}
+            </p>
+          )}
+        </div>
       </div>
       <div className="flex items-center justify-between gap-2">
         <PriorityFlag priority={task.priority} />

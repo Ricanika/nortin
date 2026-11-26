@@ -15,7 +15,7 @@ import { ContentSummary } from "./ContentMetrics";
 import { ListKindContext } from "./PostCover";
 import { toResult, type CampaignResult } from "@/lib/campaign";
 import type { SocialChannel } from "@/lib/social";
-import { PdvSummary, usePdvBundle } from "./Pdv";
+import { PdvContext, PdvSummary, usePdvBundle } from "./Pdv";
 import { useToast } from "./Toast";
 import { notifyStructureChanged, STRUCTURE_EVENT, toggleTarget } from "@/lib/tasks";
 
@@ -423,6 +423,7 @@ export default function ListScreen({ listId }: { listId: string }) {
 
   return (
     <ListKindContext.Provider value={list?.kind ?? "tasks"}>
+    <PdvContext.Provider value={isPdv ? pdvBundle : null}>
     <div className="flex h-full min-h-0 flex-col">
       <header className="border-b px-4 pt-4 sm:px-6">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -598,6 +599,7 @@ export default function ListScreen({ listId }: { listId: string }) {
         />
       )}
     </div>
+    </PdvContext.Provider>
     </ListKindContext.Provider>
   );
 }

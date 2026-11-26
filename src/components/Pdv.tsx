@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   brl,
@@ -29,6 +29,15 @@ export interface PdvBundle {
   sales: PdvMonth[];
   base: PdvBaseMonth[];
   reload: () => void;
+}
+
+/** Dados do PDV da lista aberta, para telas que não recebem por props (ex.: cartões do Quadro). */
+export const PdvContext = createContext<PdvBundle | null>(null);
+export const usePdvContext = () => useContext(PdvContext);
+
+/** Representante do cliente da visita (vendedor no Sankhya). */
+export function repOf(task: Pick<Task, "pdv_codparc">, bundle: PdvBundle | null) {
+  return task.pdv_codparc ? bundle?.partners[task.pdv_codparc]?.vendedor ?? null : null;
 }
 
 /** Dados do Sankhya (copiados) das lojas desta lista: cadastro, vendas por mês e base. */
